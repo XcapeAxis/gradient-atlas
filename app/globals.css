@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 42 38% 96%;
+    --foreground: 205 26% 16%;
+    --card: 0 0% 100%;
+    --card-foreground: 205 26% 16%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 205 26% 16%;
+    --primary: 191 41% 28%;
+    --primary-foreground: 45 33% 98%;
+    --secondary: 190 22% 90%;
+    --secondary-foreground: 201 22% 24%;
+    --muted: 192 19% 92%;
+    --muted-foreground: 201 12% 40%;
+    --accent: 38 60% 91%;
+    --accent-foreground: 201 22% 24%;
+    --destructive: 4 72% 52%;
+    --destructive-foreground: 45 33% 98%;
+    --border: 198 18% 82%;
+    --input: 198 18% 82%;
+    --ring: 191 48% 35%;
+    --canvas: 44 42% 98%;
+    --panel: 0 0% 100%;
+    --rail: 192 20% 94%;
+    --font-sans: "Aptos", "Segoe UI", "Noto Sans", "Helvetica Neue", sans-serif;
+    --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    --radius-sm: 0.75rem;
+    --radius-md: 1rem;
+    --radius-lg: 1.3rem;
+    --radius-xl: 1.6rem;
+    --shadow-soft: 0 18px 42px -28px rgba(58, 76, 88, 0.35);
+    --shadow-panel: 0 26px 60px -40px rgba(36, 63, 76, 0.5);
+    --shadow-canvas: 0 36px 76px -48px rgba(33, 66, 80, 0.5);
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --motion-fast: 160ms;
+    --motion-base: 240ms;
+    --motion-slow: 420ms;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply min-h-screen bg-background font-sans text-foreground antialiased;
+    background-image:
+      radial-gradient(circle at top left, rgba(188, 221, 219, 0.45), transparent 32%),
+      radial-gradient(circle at top right, rgba(243, 225, 198, 0.35), transparent 26%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(251, 248, 241, 0.96));
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  a,
+  button,
+  input,
+  textarea,
+  select,
+  [role="button"] {
+    @apply outline-none ring-offset-background transition duration-fast;
+  }
+
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  [role="button"]:focus-visible {
+    @apply ring-2 ring-ring ring-offset-2;
+  }
+
+  ::selection {
+    background: hsla(191, 48%, 35%, 0.18);
+  }
+}
+
+@layer components {
+  .surface-panel {
+    @apply rounded-xl border backdrop-blur-sm shadow-panel;
+    border-color: hsl(var(--border) / 0.8);
+    background-color: hsl(var(--panel) / 0.88);
+  }
+
+  .canvas-surface {
+    background-image:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(248, 245, 238, 0.95)),
+      radial-gradient(circle at top left, rgba(174, 221, 219, 0.18), transparent 30%);
+  }
+}
