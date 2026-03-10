@@ -1,6 +1,6 @@
 # Gradient Atlas
 
-Gradient Atlas is a desktop-first, local-first knowledge-graph learning app for machine learning fundamentals. Phase 1 now includes the interactive study route, the curriculum map, explainable recommendations, a local authoring studio, JSON import/export, a file-backed published viewer, and a local gallery.
+Gradient Atlas is a desktop-first, local-first knowledge-graph learning app for machine learning fundamentals. Phase 1 includes the focused study route, the curriculum map, explainable recommendations, a local authoring studio, JSON import/export, a file-backed published viewer, and a local gallery. The current UI pass simplifies the product around clear screen roles: Home for orientation, Learn for graph-first study, Map for structure and navigation, Studio for authoring, and Gallery for browsing published packs.
 
 ## Migration note
 
@@ -47,11 +47,11 @@ corepack pnpm exec playwright install
 
 ## Routes
 
-- `/` landing page with atlas framing, continue-learning card, and progress snapshot
-- `/map` curriculum overview with search, filters, module lanes, legend, preview, and recommendations
-- `/learn/[nodeId]` focused local study route with graph, detail panel, starter-path guidance, and persistent learning state
-- `/studio` local authoring studio with validation, create/edit/delete flows, import, and export preview
-- `/gallery` file-backed gallery of published graph packs
+- `/` orientation-first landing page with one primary CTA, one starter-path chooser, and one concept spotlight
+- `/map` readable curriculum overview with deterministic module lanes, search, filters, preview, and recommendations
+- `/learn/[nodeId]` graph-first study route with a large local graph, contextual detail panel, and persistent learning state
+- `/studio` local authoring tool with validation, create/edit/delete flows, import, and export preview
+- `/gallery` minimal file-backed gallery of published graph packs
 - `/graphs/[slug]` read-only published viewer for local manifest entries
 
 ## Architecture
@@ -77,10 +77,19 @@ corepack pnpm exec playwright install
 
 1. Study the bundled pack from `/learn/[nodeId]` and `/map`.
 2. Persist current node, starter path, motion preference, and learning state in local storage.
-3. Open `/studio` to edit the graph pack locally.
-4. Validate against the same Zod schema used by runtime routes.
-5. Export JSON for manual publishing or future packaging.
-6. Register published packs in the local manifest for `/gallery` and `/graphs/[slug]`.
+3. If local storage is empty, the app seeds a guided demo progress state so the UI opens in a presentation-ready learning flow.
+4. Open `/studio` to edit the graph pack locally.
+5. Validate against the same Zod schema used by runtime routes.
+6. Export JSON for manual publishing or future packaging.
+7. Register published packs in the local manifest for `/gallery` and `/graphs/[slug]`.
+
+## UI direction
+
+- Lower-density information architecture over dashboard-style density
+- Learn is the flagship route and keeps the graph as the visual focus
+- Home stays concise: one primary CTA, one starter-path chooser, and one continue-learning surface
+- Motion is limited to high-value focus, selection, and handoff states
+- English-first UI with only a small amount of supporting Chinese on the landing page
 
 ## Current content pack
 
@@ -107,6 +116,7 @@ corepack pnpm exec playwright install
 
 - [docs/product-spec.md](/D:/MYFILES/MindMap/docs/product-spec.md)
 - [docs/content-model.md](/D:/MYFILES/MindMap/docs/content-model.md)
+- [docs/ui-redesign-spec.md](/D:/MYFILES/MindMap/docs/ui-redesign-spec.md)
 
 ## Future backend plan
 
