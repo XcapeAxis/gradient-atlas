@@ -1,17 +1,17 @@
 import type { ReactNode } from "react";
-import { LeftRail } from "@/components/layout/left-rail";
 import type { AppSection } from "@/components/layout/navigation";
 import { TopBar } from "@/components/layout/top-bar";
+import { cn } from "@/lib/utils";
 
 interface AppShellProps {
   center: ReactNode;
   currentSection: AppSection;
-  description: string;
+  description?: string;
   headerTop?: ReactNode;
   leftRail?: ReactNode;
-  sectionEyebrow?: string;
-  rightPanel: ReactNode;
+  rightPanel?: ReactNode;
   rightPanelLabel?: string;
+  sectionEyebrow?: string;
   title: string;
 }
 
@@ -21,11 +21,14 @@ export function AppShell({
   description,
   headerTop,
   leftRail,
-  sectionEyebrow = "Gradient Atlas",
   rightPanel,
   rightPanelLabel = "Details",
+  sectionEyebrow = "Gradient Atlas",
   title,
 }: AppShellProps) {
+  const hasLeftRail = Boolean(leftRail);
+  const hasRightPanel = Boolean(rightPanel);
+
   return (
     <div className="min-h-screen">
       <a
@@ -37,40 +40,53 @@ export function AppShell({
 
       <TopBar currentSection={currentSection} />
 
-      <main
-        className="mx-auto grid max-w-[1600px] gap-4 px-4 pb-8 pt-5 lg:grid-cols-[260px,minmax(0,1fr)] xl:grid-cols-[260px,minmax(0,1fr),320px]"
-        id="main-content"
-      >
-        <aside aria-label="Study navigation">
-          {leftRail ?? <LeftRail currentSection={currentSection} />}
-        </aside>
-
-        <section aria-labelledby="page-title" className="space-y-4">
-          <div className="surface-panel px-6 py-5 sm:px-8">
-            {headerTop ? <div className="mb-5">{headerTop}</div> : null}
-            <p className="font-display text-xs uppercase tracking-[0.32em] text-primary">
-              {sectionEyebrow}
-            </p>
-            <h1
-              className="mt-3 font-display text-3xl text-foreground sm:text-4xl"
-              id="page-title"
-            >
-              {title}
-            </h1>
-            <p className="mt-3 max-w-3xl text-base leading-7 text-muted-foreground">
-              {description}
-            </p>
+      <main className="mx-auto max-w-[1480px] px-5 pb-10 pt-8" id="main-content">
+        <section className="space-y-4">
+          <p className="quiet-label">{sectionEyebrow}</p>
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div className="max-w-3xl space-y-3">
+              <h1 className="font-display text-4xl leading-tight text-foreground sm:text-[3.35rem]">
+                {title}
+              </h1>
+              {description ? (
+                <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+                  {description}
+                </p>
+              ) : null}
+            </div>
+            {headerTop ? <div className="w-full max-w-3xl">{headerTop}</div> : null}
           </div>
-
-          {center}
         </section>
 
-        <aside
-          aria-label={rightPanelLabel}
-          className="space-y-4 xl:sticky xl:top-24 xl:h-fit"
+        <div
+          className={cn(
+            "mt-8 grid gap-6",
+            hasLeftRail && hasRightPanel
+              ? "xl:grid-cols-[240px,minmax(0,1fr),320px]"
+              : hasLeftRail
+                ? "xl:grid-cols-[240px,minmax(0,1fr)]"
+                : hasRightPanel
+                  ? "xl:grid-cols-[minmax(0,1fr),320px]"
+                  : "grid-cols-1",
+          )}
         >
-          {rightPanel}
-        </aside>
+          {hasLeftRail ? (
+            <aside aria-label="Page controls" className="space-y-4 xl:sticky xl:top-24 xl:h-fit">
+              {leftRail}
+            </aside>
+          ) : null}
+
+          <section className="min-w-0">{center}</section>
+
+          {hasRightPanel ? (
+            <aside
+              aria-label={rightPanelLabel}
+              className="space-y-4 xl:sticky xl:top-24 xl:h-fit"
+            >
+              {rightPanel}
+            </aside>
+          ) : null}
+        </div>
       </main>
     </div>
   );

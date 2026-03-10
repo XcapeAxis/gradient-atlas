@@ -3,8 +3,6 @@
 import { useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import { useMotionSettings } from "@/components/providers/motion-provider";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   getDirectionalNeighborId,
   type GraphDirection,
@@ -102,85 +100,41 @@ export function LearnGraphCanvas({
   return (
     <motion.section
       animate={{ opacity: 1, y: 0 }}
-      className="surface-panel overflow-hidden"
+      className="surface-panel overflow-hidden p-4 sm:p-5"
       initial={{ opacity: 0, y: motionMode === "reduced" ? 0 : 10 }}
       transition={getPanelTransition(motionMode)}
     >
-      <div className="flex flex-col gap-3 border-b border-border/80 px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-2">
-          <p className="font-display text-2xl text-foreground">Focused local graph</p>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            The canvas stays intentionally small: the current concept, direct
-            prerequisites, direct dependents, and a short band of high-value related
-            concepts remain visible at the same time.
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="quiet-label">Local graph</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Keep the current concept, its prerequisites, direct dependents, and a few
+            useful neighbors in view.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary">{neighborhood.visibleNodes.length} visible nodes</Badge>
-          <Badge variant="outline">Arrow keys move focus</Badge>
-          <Badge variant="outline">Enter opens focused node</Badge>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          {neighborhood.visibleNodes.length} visible nodes
+        </p>
       </div>
 
-      <div className="p-4 sm:p-5">
-        <div className="canvas-surface relative aspect-[4/3] min-h-[360px] overflow-hidden rounded-[1.35rem] border border-border/80">
-          <svg
-            aria-hidden="true"
-            className="absolute inset-0 h-full w-full"
-            viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`}
-          >
-            <defs>
-              <marker
-                id="learn-graph-arrow"
-                markerHeight="8"
-                markerWidth="8"
-                orient="auto-start-reverse"
-                refX="7"
-                refY="4"
-              >
-                <path
-                  d="M0,0 L8,4 L0,8 z"
-                  fill="hsla(191, 41%, 28%, 0.75)"
-                />
-              </marker>
-            </defs>
-
-            {neighborhood.visibleEdges.map((visibleEdge) => {
-              const sourceNode = nodeMap.get(visibleEdge.edge.source);
-              const targetNode = nodeMap.get(visibleEdge.edge.target);
-
-              if (!sourceNode || !targetNode) {
-                return null;
-              }
-
-              const isSelected = visibleEdge.id === selectedRelationId;
-              const strokeOpacity = isSelected
-                ? 0.95
-                : visibleEdge.isDirectToCurrent
-                  ? 0.8
-                  : visibleEdge.isDimmed
-                    ? 0.22
-                    : 0.46;
-
-              return (
-                <motion.line
-                  animate={{
-                    strokeOpacity,
-                    strokeWidth: isSelected || visibleEdge.isDirectToCurrent ? 2.8 : 2,
-                  }}
-                  initial={false}
-                  key={visibleEdge.id}
-                  markerEnd="url(#learn-graph-arrow)"
-                  stroke={isSelected ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))"}
-                  transition={getPathHighlightTransition(motionMode)}
-                  x1={sourceNode.position.x}
-                  x2={targetNode.position.x}
-                  y1={sourceNode.position.y}
-                  y2={targetNode.position.y}
-                />
-              );
-            })}
-          </svg>
+      <div className="canvas-surface relative aspect-[4/3] min-h-[420px] overflow-hidden rounded-[1.45rem] border border-border/70">
+        <svg
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full"
+          viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`}
+        >
+          <defs>
+            <marker
+              id="learn-graph-arrow"
+              markerHeight="8"
+              markerWidth="8"
+              orient="auto-start-reverse"
+              refX="7"
+              refY="4"
+            >
+              <path d="M0,0 L8,4 L0,8 z" fill="hsla(191, 41%, 28%, 0.55)" />
+            </marker>
+          </defs>
 
           {neighborhood.visibleEdges.map((visibleEdge) => {
             const sourceNode = nodeMap.get(visibleEdge.edge.source);
@@ -191,127 +145,137 @@ export function LearnGraphCanvas({
             }
 
             const isSelected = visibleEdge.id === selectedRelationId;
-            const midpointX = (sourceNode.position.x + targetNode.position.x) / 2;
-            const midpointY = (sourceNode.position.y + targetNode.position.y) / 2;
+            const strokeOpacity = isSelected
+              ? 0.86
+              : visibleEdge.isDirectToCurrent
+                ? 0.56
+                : visibleEdge.isDimmed
+                  ? 0.12
+                  : 0.3;
 
             return (
-              <motion.button
-                aria-label={`${visibleEdge.edge.label}: ${visibleEdge.edge.rationale}`}
-                className={cn(
-                  "absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] transition-opacity",
-                  isSelected
-                    ? "border-primary/40 bg-primary text-primary-foreground shadow-soft"
-                    : visibleEdge.isDimmed
-                      ? "border-border/60 bg-background/90 text-muted-foreground opacity-60"
-                      : "border-border/80 bg-background/95 text-foreground",
-                )}
-                key={visibleEdge.id}
-                onClick={() =>
-                  onSelectRelation(isSelected ? null : visibleEdge.id)
-                }
-                onFocus={() => onSelectRelation(visibleEdge.id)}
-                style={{
-                  left: toPercent(midpointX, GRAPH_WIDTH),
-                  top: toPercent(midpointY, GRAPH_HEIGHT),
-                }}
-                transition={getPathHighlightTransition(motionMode)}
-                type="button"
-                whileHover={getNodeHoverAnimation(motionMode)}
-                whileTap={getNodePressAnimation(motionMode)}
-              >
-                {visibleEdge.edge.label}
-              </motion.button>
-            );
-          })}
-
-          {neighborhood.visibleNodes.map((visibleNode) => {
-            const isCurrent = visibleNode.role === "current";
-
-            return (
-              <motion.button
+              <motion.line
                 animate={{
-                  boxShadow: isCurrent
-                    ? "0 26px 60px -34px rgba(31, 68, 79, 0.62)"
-                    : visibleNode.isDimmed
-                      ? "0 12px 22px -20px rgba(58, 76, 88, 0.2)"
-                      : "0 18px 38px -26px rgba(58, 76, 88, 0.38)",
+                  strokeOpacity,
+                  strokeWidth: isSelected || visibleEdge.isDirectToCurrent ? 2.2 : 1.4,
                 }}
-                aria-current={isCurrent ? "page" : undefined}
-                aria-label={`${visibleNode.node.title}. ${getNodeRoleLabel(visibleNode.role)} concept.`}
-                className={cn(
-                  "absolute z-20 w-40 -translate-x-1/2 -translate-y-1/2 rounded-[1.15rem] border px-4 py-3 text-left",
-                  isCurrent
-                    ? "border-primary/35 bg-primary text-primary-foreground shadow-panel"
-                    : visibleNode.isDimmed
-                      ? "border-border/70 bg-background/80 text-muted-foreground opacity-65 hover:opacity-90"
-                      : "border-border/80 bg-background/95 text-foreground",
-                )}
                 initial={false}
-                key={visibleNode.id}
-                onClick={() => onNavigate(visibleNode.id)}
-                onFocus={() => onSelectRelation(null)}
-                onKeyDown={(event) => handleNodeKeyDown(event, visibleNode.id)}
-                ref={(element) => {
-                  nodeButtonRefs.current[visibleNode.id] = element;
-                }}
-                style={{
-                  left: toPercent(visibleNode.position.x, GRAPH_WIDTH),
-                  top: toPercent(visibleNode.position.y, GRAPH_HEIGHT),
-                }}
-                transition={getNodeSelectionTransition(motionMode)}
-                type="button"
-                whileHover={!isCurrent ? getNodeHoverAnimation(motionMode) : undefined}
-                whileTap={!isCurrent ? getNodePressAnimation(motionMode) : undefined}
-              >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-80">
-                  {getNodeRoleLabel(visibleNode.role)}
-                </p>
-                {isCurrent ? (
-                  <motion.div
-                    className="mt-2 font-display text-sm leading-5"
-                    layoutId={`learn-node-chip-${visibleNode.id}`}
-                    transition={getPanelTransition(motionMode)}
-                  >
-                    {visibleNode.node.shortTitle}
-                  </motion.div>
-                ) : (
-                  <p className="mt-2 font-display text-sm leading-5">
-                    {visibleNode.node.shortTitle}
-                  </p>
-                )}
-              </motion.button>
+                key={visibleEdge.id}
+                markerEnd="url(#learn-graph-arrow)"
+                stroke={isSelected ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))"}
+                transition={getPathHighlightTransition(motionMode)}
+                x1={sourceNode.position.x}
+                x2={targetNode.position.x}
+                y1={sourceNode.position.y}
+                y2={targetNode.position.y}
+              />
             );
           })}
-        </div>
-      </div>
+        </svg>
 
-      <div className="flex flex-col gap-4 border-t border-border/80 px-6 py-5 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-            Relation focus
-          </p>
-          {selectedRelation ? (
-            <>
-              <p className="font-medium text-foreground">{selectedRelation.edge.label}</p>
-              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                {selectedRelation.edge.rationale}
-              </p>
-            </>
-          ) : (
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              Focus or select a relation pill to inspect the typed connection between
-              two visible concepts.
+        {selectedRelation ? (
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            className="absolute left-4 top-4 z-30 max-w-xs rounded-[1.1rem] border border-border/70 bg-background/92 px-4 py-3 shadow-soft"
+            initial={{ opacity: 0, y: motionMode === "reduced" ? 0 : 8 }}
+            transition={getPanelTransition(motionMode)}
+          >
+            <p className="quiet-label">Relation</p>
+            <p className="mt-2 font-medium text-foreground">{selectedRelation.edge.label}</p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              {selectedRelation.edge.rationale}
             </p>
-          )}
-        </div>
-        <Button
-          onClick={() => onNavigate(neighborhood.currentNode.id)}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          Recenter on {neighborhood.currentNode.shortTitle}
-        </Button>
+          </motion.div>
+        ) : null}
+
+        {neighborhood.visibleEdges.map((visibleEdge) => {
+          const sourceNode = nodeMap.get(visibleEdge.edge.source);
+          const targetNode = nodeMap.get(visibleEdge.edge.target);
+
+          if (!sourceNode || !targetNode) {
+            return null;
+          }
+
+          const isSelected = visibleEdge.id === selectedRelationId;
+          const midpointX = (sourceNode.position.x + targetNode.position.x) / 2;
+          const midpointY = (sourceNode.position.y + targetNode.position.y) / 2;
+
+          return (
+            <motion.button
+              aria-label={`${visibleEdge.edge.label}: ${visibleEdge.edge.rationale}`}
+              className={cn(
+                "absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-full border transition-colors",
+                isSelected
+                  ? "border-primary/30 bg-primary px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary-foreground shadow-soft"
+                  : "h-3.5 w-3.5 border-border/70 bg-background/92",
+              )}
+              key={visibleEdge.id}
+              onClick={() =>
+                onSelectRelation(isSelected ? null : visibleEdge.id)
+              }
+              onFocus={() => onSelectRelation(visibleEdge.id)}
+              style={{
+                left: toPercent(midpointX, GRAPH_WIDTH),
+                top: toPercent(midpointY, GRAPH_HEIGHT),
+              }}
+              transition={getPathHighlightTransition(motionMode)}
+              type="button"
+              whileHover={getNodeHoverAnimation(motionMode)}
+              whileTap={getNodePressAnimation(motionMode)}
+            >
+              {isSelected ? visibleEdge.edge.label : null}
+            </motion.button>
+          );
+        })}
+
+        {neighborhood.visibleNodes.map((visibleNode) => {
+          const isCurrent = visibleNode.role === "current";
+
+          return (
+            <motion.button
+              animate={{
+                boxShadow: isCurrent
+                  ? "0 24px 56px -36px rgba(31, 68, 79, 0.52)"
+                  : visibleNode.isDimmed
+                    ? "0 10px 20px -18px rgba(58, 76, 88, 0.12)"
+                    : "0 16px 34px -28px rgba(58, 76, 88, 0.24)",
+              }}
+              aria-current={isCurrent ? "page" : undefined}
+              aria-label={`${visibleNode.node.title}. ${getNodeRoleLabel(visibleNode.role)} concept.`}
+              className={cn(
+                "absolute z-20 w-40 -translate-x-1/2 -translate-y-1/2 rounded-[1.15rem] border px-4 py-3 text-left",
+                isCurrent
+                  ? "border-primary/30 bg-primary text-primary-foreground"
+                  : visibleNode.isDimmed
+                    ? "border-border/60 bg-background/74 text-muted-foreground opacity-60 hover:opacity-90"
+                    : "border-border/70 bg-background/90 text-foreground",
+              )}
+              initial={false}
+              key={visibleNode.id}
+              onClick={() => onNavigate(visibleNode.id)}
+              onFocus={() => onSelectRelation(null)}
+              onKeyDown={(event) => handleNodeKeyDown(event, visibleNode.id)}
+              ref={(element) => {
+                nodeButtonRefs.current[visibleNode.id] = element;
+              }}
+              style={{
+                left: toPercent(visibleNode.position.x, GRAPH_WIDTH),
+                top: toPercent(visibleNode.position.y, GRAPH_HEIGHT),
+              }}
+              transition={getNodeSelectionTransition(motionMode)}
+              type="button"
+              whileHover={!isCurrent ? getNodeHoverAnimation(motionMode) : undefined}
+              whileTap={!isCurrent ? getNodePressAnimation(motionMode) : undefined}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-75">
+                {getNodeRoleLabel(visibleNode.role)}
+              </p>
+              <p className="mt-2 font-display text-sm leading-5">
+                {visibleNode.node.shortTitle}
+              </p>
+            </motion.button>
+          );
+        })}
       </div>
     </motion.section>
   );

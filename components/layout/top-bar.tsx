@@ -1,54 +1,70 @@
 import Link from "next/link";
 import { MotionPreferenceToggle } from "@/components/layout/motion-preference-toggle";
 import { appNavItems, type AppSection } from "@/components/layout/navigation";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function TopBar({ currentSection }: { currentSection: AppSection }) {
+  const primaryNavItems = appNavItems.filter((item) =>
+    ["home", "map", "learn"].includes(item.id),
+  );
+  const secondaryNavItems = appNavItems.filter((item) =>
+    ["studio", "gallery"].includes(item.id),
+  );
+
   return (
-    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur">
-      <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-start gap-4">
-          <div className="rounded-full border border-primary/20 bg-primary/10 px-3 py-2 font-display text-sm uppercase tracking-[0.24em] text-primary">
-            Gradient Atlas
-          </div>
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/82 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-[1480px] flex-col gap-4 px-5 py-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-6">
           <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="font-display text-lg text-foreground">
-                Machine learning as a local study graph
-              </p>
-              <Badge variant="secondary">Phase 1</Badge>
-            </div>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              Local-first learning, navigation, and authoring for a curated
-              machine-learning atlas with calm motion and readable graph views.
+            <Link
+              className="font-display text-xl text-foreground transition-colors hover:text-primary"
+              href="/"
+            >
+              Gradient Atlas
+            </Link>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              ML fundamentals
             </p>
           </div>
-        </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <nav aria-label="Primary" className="flex flex-wrap items-center gap-2">
-            {appNavItems.map((item) => (
-              <Button
-                asChild
+          <nav aria-label="Primary" className="flex flex-wrap items-center gap-1">
+            {primaryNavItems.map((item) => (
+              <Link
+                aria-current={item.id === currentSection ? "page" : undefined}
+                className={cn(
+                  "rounded-full px-3 py-2 text-sm transition-colors",
+                  item.id === currentSection
+                    ? "bg-primary/10 text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                href={item.href}
                 key={item.id}
-                size="sm"
-                variant={item.id === currentSection ? "default" : "ghost"}
               >
+                {item.label}
+              </Link>
+            ))}
+            <div className="mx-1 hidden h-4 w-px bg-border/80 md:block" />
+            <div className="flex items-center gap-1">
+              {secondaryNavItems.map((item) => (
                 <Link
                   aria-current={item.id === currentSection ? "page" : undefined}
                   className={cn(
-                    "justify-start",
-                    item.id !== currentSection && "text-muted-foreground",
+                    "rounded-full px-3 py-2 text-sm transition-colors",
+                    item.id === currentSection
+                      ? "bg-secondary/80 text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                   href={item.href}
+                  key={item.id}
                 >
                   {item.label}
                 </Link>
-              </Button>
-            ))}
+              ))}
+            </div>
           </nav>
+        </div>
+
+        <div className="flex justify-end">
           <MotionPreferenceToggle />
         </div>
       </div>

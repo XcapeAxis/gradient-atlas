@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Search } from "lucide-react";
+import { ChevronRight, PanelRightClose, PanelRightOpen, Search } from "lucide-react";
 import { LayoutGroup } from "framer-motion";
 import {
   startTransition,
@@ -14,12 +14,11 @@ import {
 } from "react";
 import { LearnDetailPanel } from "@/components/learn/learn-detail-panel";
 import { LearnGraphCanvas } from "@/components/learn/learn-graph-canvas";
-import { LearnLeftRail } from "@/components/learn/learn-left-rail";
-import { AppShell } from "@/components/layout/app-shell";
-import { Badge } from "@/components/ui/badge";
+import { TopBar } from "@/components/layout/top-bar";
 import { Button } from "@/components/ui/button";
 import {
   mlFundamentalsGraph,
+  mlFundamentalsModuleOrder,
 } from "@/data/ml-fundamentals";
 import {
   getRecommendedConcepts,
@@ -27,6 +26,7 @@ import {
   searchCurriculumNodes,
 } from "@/lib/curriculum-navigation";
 import { getLearnNeighborhood } from "@/lib/learn-graph";
+import { getOverallProgressSummary } from "@/lib/progress";
 import { cn } from "@/lib/utils";
 import { useLearningProgressStore } from "@/stores/learning-progress";
 
@@ -35,6 +35,7 @@ export function LearnWorkspace({ initialNodeId }: { initialNodeId: string }) {
   const [activeNodeId, setActiveNodeId] = useState(initialNodeId);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRelationId, setSelectedRelationId] = useState<string | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(true);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const currentStarterPathId = useLearningProgressStore(
     (state) => state.currentStarterPathId,
@@ -96,6 +97,24 @@ export function LearnWorkspace({ initialNodeId }: { initialNodeId: string }) {
       ),
     [activeNode.id, nodeStatuses],
   );
+  const relationshipGroups = useMemo(
+    () => ({
+      dependents: neighborhood.visibleNodes
+        .filter((item) => item.role === "dependent")
+        .map((item) => item.node),
+      prerequisites: neighborhood.visibleNodes
+        .filter((item) => item.role === "prerequisite")
+        .map((item) => item.node),
+      related: neighborhood.visibleNodes
+        .filter((item) => item.role === "related")
+        .map((item) => item.node),
+    }),
+    [neighborhood.visibleNodes],
+  );
+  const overallProgress = useMemo(
+    () => getOverallProgressSummary(mlFundamentalsGraph, nodeStatuses),
+    [nodeStatuses],
+  );
 
   function navigateToNode(nodeId: string) {
     setActiveNodeId(nodeId);
@@ -107,22 +126,6 @@ export function LearnWorkspace({ initialNodeId }: { initialNodeId: string }) {
         router.push(`/learn/${nodeId}` as Route);
       });
     }
-  }
-
-  function openStarterPath(starterPathId: (typeof mlFundamentalsGraph.starterPaths)[number]["id"]) {
-    const starterPath = mlFundamentalsGraph.starterPaths.find(
-      (path) => path.id === starterPathId,
-    );
-
-    if (!starterPath) {
-      return;
-    }
-
-    setCurrentStarterPathId(starterPath.id);
-    navigateToNode(
-      starterPath.nodeIds.find((nodeId) => nodeStatuses[nodeId] !== "mastered") ??
-        starterPath.nodeIds[0],
-    );
   }
 
   function submitSearch(event: React.FormEvent<HTMLFormElement>) {
@@ -140,132 +143,182 @@ export function LearnWorkspace({ initialNodeId }: { initialNodeId: string }) {
 
   return (
     <LayoutGroup id="learn-workspace">
-    <AppShell
-      center={
-        <LearnGraphCanvas
-          neighborhood={neighborhood}
-          onNavigate={navigateToNode}
-          onSelectRelation={setSelectedRelationId}
-          selectedRelationId={selectedRelationId}
-        />
-      }
-      currentSection="learn"
-      description={`Study ${activeNode.module} through a deterministic local graph. Direct prerequisites, direct dependents, and a short band of related concepts stay visible while progress and learning state persist locally.`}
-      headerTop={
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="space-y-3">
-            <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <Link className="transition-colors hover:text-foreground" href="/">
-                Home
-              </Link>
-              <ChevronRight className="h-4 w-4" />
-              <span>Learn</span>
-              <ChevronRight className="h-4 w-4" />
-              <span>{activeNode.module}</span>
-              <ChevronRight className="h-4 w-4" />
-              <span className="text-foreground">{activeNode.shortTitle}</span>
-            </nav>
+      <div className="min-h-screen">
+        <a
+          className="sr-only left-4 top-4 z-50 rounded-md bg-background px-4 py-2 text-sm font-medium text-foreground shadow-soft focus:not-sr-only focus:absolute"
+          href="#main-content"
+        >
+          Skip to content
+        </a>
 
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">{neighborhood.starterPath.title}</Badge>
-              {currentPathIndex >= 0 ? (
-                <Badge variant="outline">
-                  Step {currentPathIndex + 1} of {neighborhood.starterPath.nodeIds.length}
-                </Badge>
-              ) : (
-                <Badge variant="outline">Off the current starter path</Badge>
-              )}
-            </div>
-          </div>
+        <TopBar currentSection="learn" />
 
-          <form
-            aria-label="Quick concept search"
-            className="w-full max-w-xl space-y-2"
-            onSubmit={submitSearch}
-            role="search"
-          >
-            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-primary" htmlFor="learn-search">
-              Quick search
-            </label>
-            <div className="relative">
-              <div className="flex items-center gap-3 rounded-[1.1rem] border border-border/80 bg-background/90 px-4 py-3 shadow-soft">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <input
-                  className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground"
-                  id="learn-search"
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Jump to a concept, alias, or topic"
-                  value={searchQuery}
-                />
-                <Button size="sm" type="submit" variant="outline">
-                  Open
-                </Button>
+        <main className="mx-auto max-w-[1480px] px-5 pb-12 pt-8" id="main-content">
+          <div className="space-y-6">
+            <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+              <div className="space-y-3">
+                <nav
+                  aria-label="Breadcrumb"
+                  className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+                >
+                  <Link className="transition-colors hover:text-foreground" href="/">
+                    Home
+                  </Link>
+                  <ChevronRight className="h-4 w-4" />
+                  <span>Learn</span>
+                  <ChevronRight className="h-4 w-4" />
+                  <span>{activeNode.module}</span>
+                  <ChevronRight className="h-4 w-4" />
+                  <span className="text-foreground">{activeNode.shortTitle}</span>
+                </nav>
+                <div>
+                  <p className="quiet-label">Focused study</p>
+                  <h1 className="mt-2 font-display text-4xl text-foreground sm:text-[3.2rem]">
+                    {activeNode.title}
+                  </h1>
+                </div>
               </div>
 
-              {deferredQuery ? (
-                <div className="absolute left-0 right-0 top-[calc(100%+0.6rem)] z-30 rounded-[1.1rem] border border-border/80 bg-background/95 p-2 shadow-panel">
-                  {searchResults.length > 0 ? (
-                    <div className="space-y-1">
-                      {searchResults.map((node) => (
-                        <button
-                          className={cn(
-                            "w-full rounded-xl border border-transparent px-3 py-3 text-left transition-colors duration-fast hover:border-border hover:bg-secondary/40",
-                            node.id === activeNode.id && "border-primary/30 bg-primary/10",
-                          )}
-                          key={node.id}
-                          onClick={() => {
-                            navigateToNode(node.id);
-                            setSearchQuery("");
-                          }}
-                          type="button"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
+              <form
+                aria-label="Quick concept search"
+                className="w-full max-w-xl"
+                onSubmit={submitSearch}
+                role="search"
+              >
+                <label className="quiet-label" htmlFor="learn-search">
+                  Quick search
+                </label>
+                <div className="relative mt-2">
+                  <div className="flex items-center gap-3 rounded-[1.1rem] border border-border/70 bg-background/82 px-4 py-3 shadow-soft">
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                    <input
+                      className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground"
+                      id="learn-search"
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Jump to a concept, alias, or topic"
+                      value={searchQuery}
+                    />
+                    <Button size="sm" type="submit" variant="outline">
+                      Open
+                    </Button>
+                  </div>
+
+                  {deferredQuery ? (
+                    <div className="absolute left-0 right-0 top-[calc(100%+0.6rem)] z-30 rounded-[1.1rem] border border-border/70 bg-background/95 p-2 shadow-panel">
+                      {searchResults.length > 0 ? (
+                        <div className="space-y-1">
+                          {searchResults.map((node) => (
+                            <button
+                              className={cn(
+                                "w-full rounded-xl px-3 py-3 text-left transition-colors hover:bg-secondary/40",
+                                node.id === activeNode.id && "bg-primary/10",
+                              )}
+                              key={node.id}
+                              onClick={() => {
+                                navigateToNode(node.id);
+                                setSearchQuery("");
+                              }}
+                              type="button"
+                            >
                               <p className="font-medium text-foreground">{node.title}</p>
                               <p className="mt-1 text-sm text-muted-foreground">
                                 {node.summary}
                               </p>
-                            </div>
-                            <Badge variant="outline">{node.module}</Badge>
-                          </div>
-                        </button>
-                      ))}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="px-3 py-3 text-sm text-muted-foreground">
+                          No concept matched that query.
+                        </p>
+                      )}
                     </div>
-                  ) : (
-                    <p className="px-3 py-3 text-sm text-muted-foreground">
-                      No concept matched that query.
-                    </p>
-                  )}
+                  ) : null}
                 </div>
+              </form>
+            </div>
+
+            <section className="surface-panel flex flex-col gap-4 p-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="space-y-3">
+                <p className="quiet-label">Study strip</p>
+                <div className="flex flex-wrap gap-2">
+                  {mlFundamentalsModuleOrder.map((module) => (
+                    <span
+                      className={cn(
+                        "rounded-full px-3 py-1.5 text-sm",
+                        module === activeNode.module
+                          ? "bg-primary/10 text-foreground"
+                          : "text-muted-foreground",
+                      )}
+                      key={module}
+                    >
+                      {module}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between xl:justify-end">
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  <p>
+                    {neighborhood.starterPath.title}
+                    {currentPathIndex >= 0
+                      ? ` · Step ${currentPathIndex + 1} of ${neighborhood.starterPath.nodeIds.length}`
+                      : " · Off the current path"}
+                  </p>
+                  <p>
+                    {overallProgress.touched}/{overallProgress.total} touched
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setIsDetailOpen((currentValue) => !currentValue)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {isDetailOpen ? (
+                    <PanelRightClose className="mr-2 h-4 w-4" />
+                  ) : (
+                    <PanelRightOpen className="mr-2 h-4 w-4" />
+                  )}
+                  {isDetailOpen ? "Hide details" : "Show details"}
+                </Button>
+              </div>
+            </section>
+
+            <div
+              className={cn(
+                "grid gap-6",
+                isDetailOpen && "xl:grid-cols-[minmax(0,1fr),360px]",
+              )}
+            >
+              <LearnGraphCanvas
+                neighborhood={neighborhood}
+                onNavigate={navigateToNode}
+                onSelectRelation={setSelectedRelationId}
+                selectedRelationId={selectedRelationId}
+              />
+
+              {isDetailOpen ? (
+                <aside
+                  aria-label="Concept detail view"
+                  className="space-y-4 xl:sticky xl:top-24 xl:h-fit"
+                >
+                  <LearnDetailPanel
+                    node={activeNode}
+                    nodeStatus={nodeStatuses[activeNode.id]}
+                    onNavigate={navigateToNode}
+                    onSetNodeStatus={(status) => setNodeStatus(activeNode.id, status)}
+                    recommendations={recommendations}
+                    relationshipGroups={relationshipGroups}
+                    unmetWarning={unmetWarning}
+                  />
+                </aside>
               ) : null}
             </div>
-          </form>
-        </div>
-      }
-      leftRail={
-        <LearnLeftRail
-          currentNodeId={activeNode.id}
-          currentStarterPath={neighborhood.starterPath}
-          graph={mlFundamentalsGraph}
-          nodeStatuses={nodeStatuses}
-          onNavigate={navigateToNode}
-          onOpenStarterPath={openStarterPath}
-        />
-      }
-      rightPanel={
-        <LearnDetailPanel
-          node={activeNode}
-          nodeStatus={nodeStatuses[activeNode.id]}
-          onNavigate={navigateToNode}
-          onSetNodeStatus={(status) => setNodeStatus(activeNode.id, status)}
-          recommendations={recommendations}
-          unmetWarning={unmetWarning}
-        />
-      }
-      rightPanelLabel="Concept detail view"
-      sectionEyebrow="Core learning experience"
-      title={activeNode.title}
-    />
+          </div>
+        </main>
+      </div>
     </LayoutGroup>
   );
 }

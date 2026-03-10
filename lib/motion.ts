@@ -8,12 +8,12 @@ export const motionPreferenceOrder: MotionPreference[] = [
 ];
 
 export const motionTokens = {
-  hover: 0.14,
-  press: 0.1,
-  selection: 0.26,
-  pathHighlight: 0.18,
-  panel: 0.22,
-  camera: 0.28,
+  hover: 0.12,
+  press: 0.09,
+  selection: 0.24,
+  pathHighlight: 0.16,
+  panel: 0.18,
+  camera: 0.24,
 } as const;
 
 const easeOut = [0.22, 1, 0.36, 1] as const;
@@ -46,26 +46,26 @@ export function toFramerReducedMotion(mode: MotionMode) {
 export function getNodeHoverAnimation(mode: MotionMode) {
   return mode === "reduced"
     ? {
-        boxShadow: "0 22px 40px -30px rgba(34, 74, 86, 0.45)",
+        boxShadow: "0 16px 26px -24px rgba(34, 74, 86, 0.28)",
         transition: { duration: motionTokens.hover, ease: easeOut },
       }
     : {
-        boxShadow: "0 24px 48px -30px rgba(34, 74, 86, 0.48)",
+        boxShadow: "0 18px 32px -26px rgba(34, 74, 86, 0.32)",
         transition: { duration: motionTokens.hover, ease: easeOut },
-        y: -4,
+        y: -2,
       };
 }
 
 export function getNodePressAnimation(mode: MotionMode) {
   return mode === "reduced"
     ? {
-        opacity: 0.96,
+        opacity: 0.94,
         transition: { duration: motionTokens.press, ease: easeOut },
       }
     : {
-        scale: 0.985,
+        scale: 0.99,
         transition: { duration: motionTokens.press, ease: easeOut },
-        y: -1,
+        y: -0.5,
       };
 }
 
@@ -85,7 +85,7 @@ export function getPathHighlightTransition(mode: MotionMode) {
 
 export function getPanelTransition(mode: MotionMode) {
   return {
-    duration: mode === "reduced" ? 0.18 : motionTokens.panel,
+    duration: mode === "reduced" ? 0.16 : motionTokens.panel,
     ease: easeOut,
   } as const;
 }
