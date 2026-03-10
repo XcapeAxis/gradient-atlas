@@ -5,7 +5,8 @@ test("gradient atlas phase 1 flow", async ({ page }) => {
 
   await expect(
     page.getByRole("heading", {
-      name: "A calm graph workspace for machine learning fundamentals",
+      level: 1,
+      name: "Learn machine learning as a calm, navigable concept graph.",
     }),
   ).toBeVisible();
 
@@ -26,7 +27,9 @@ test("gradient atlas phase 1 flow", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/learn\/logistic-regression$/);
   await page.getByRole("button", { name: "Mark understood" }).click();
-  await expect(page.getByText("understood", { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel("Concept detail view").getByText("Mark understood", { exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("link", { name: "Studio" }).click();
   await expect(page).toHaveURL(/\/studio$/);

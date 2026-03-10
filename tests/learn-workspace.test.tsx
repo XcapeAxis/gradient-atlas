@@ -41,10 +41,10 @@ describe("LearnWorkspace", () => {
       screen.getAllByText("Logistic Regression").length,
     ).toBeGreaterThanOrEqual(1);
     expect(
-      screen.getByText(
+      screen.getAllByText(
         "Logistic regression predicts class probability with a linear score passed through a sigmoid.",
-      ),
-    ).toBeInTheDocument();
+      ).length,
+    ).toBeGreaterThanOrEqual(1);
     expect(useLearningProgressStore.getState().currentNodeId).toBe(
       "logistic-regression",
     );
@@ -59,10 +59,10 @@ describe("LearnWorkspace", () => {
       screen.getAllByText("Decision Tree").length,
     ).toBeGreaterThanOrEqual(1);
     expect(
-      screen.getByText(
+      screen.getAllByText(
         "A decision tree makes predictions by recursively splitting the feature space.",
-      ),
-    ).toBeInTheDocument();
+      ).length,
+    ).toBeGreaterThanOrEqual(1);
     expect(useLearningProgressStore.getState().currentNodeId).toBe("decision-tree");
   });
 });
