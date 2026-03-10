@@ -3,12 +3,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
 import { useMotionSettings } from "@/components/providers/motion-provider";
-import { Badge } from "@/components/ui/badge";
 import {
-  getPathHighlightTransition,
   getNodeHoverAnimation,
   getNodePressAnimation,
   getNodeSelectionTransition,
+  getPathHighlightTransition,
 } from "@/lib/motion";
 import { getModuleOverviewLayout } from "@/lib/module-overview-layout";
 import { getCompletionState, type LearningStatus } from "@/lib/progress";
@@ -18,29 +17,35 @@ import { cn } from "@/lib/utils";
 function getNodeTone(
   isSelected: boolean,
   isPreview: boolean,
+  isPathNode: boolean,
+  isMuted: boolean,
   completionState: ReturnType<typeof getCompletionState>,
 ) {
   if (isSelected) {
-    return "border-primary/40 bg-primary text-primary-foreground shadow-panel";
+    return "border-primary/30 bg-primary text-primary-foreground";
   }
 
   if (isPreview) {
-    return "border-primary/25 bg-primary/10 text-foreground shadow-soft";
+    return "border-primary/25 bg-primary/10 text-foreground";
+  }
+
+  if (isPathNode) {
+    return "border-primary/16 bg-accent/72 text-foreground";
+  }
+
+  if (isMuted) {
+    return "border-border/55 bg-background/70 text-foreground/80";
   }
 
   if (completionState === "mastered") {
-    return "border-primary/20 bg-background/95 text-foreground";
+    return "border-border/70 bg-background/94 text-foreground";
   }
 
   if (completionState === "understood") {
-    return "border-border/80 bg-secondary/70 text-foreground";
+    return "border-border/70 bg-secondary/62 text-foreground";
   }
 
-  if (completionState === "exploring") {
-    return "border-border/80 bg-background/90 text-foreground";
-  }
-
-  return "border-border/75 bg-background/82 text-foreground";
+  return "border-border/70 bg-background/82 text-foreground";
 }
 
 function getStatusDotTone(completionState: ReturnType<typeof getCompletionState>) {
@@ -59,6 +64,7 @@ function getStatusDotTone(completionState: ReturnType<typeof getCompletionState>
 export function ModuleOverviewCanvas({
   activeEdgeIds = [],
   activeStarterPathEdgeIds = [],
+  activeStarterPathNodeIds = [],
   activeStarterPathTitle,
   canvasLabel,
   graph,
@@ -72,6 +78,7 @@ export function ModuleOverviewCanvas({
 }: {
   activeEdgeIds?: string[];
   activeStarterPathEdgeIds?: string[];
+  activeStarterPathNodeIds?: string[];
   activeStarterPathTitle?: string;
   canvasLabel: string;
   graph: KnowledgeGraph;
@@ -124,164 +131,168 @@ export function ModuleOverviewCanvas({
   }, [focusedNodeId, motionMode]);
 
   return (
-    <section className="surface-panel overflow-hidden">
-      <div className="flex flex-col gap-3 border-b border-border/80 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="space-y-2">
-          <p className="font-display text-2xl text-foreground">Module overview</p>
-          <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-            Modules stay anchored in left-to-right lanes so the atlas remains
-            readable at realistic density. The canvas recenters gently around the
-            currently previewed concept without relaying out the rest of the graph.
+    <section className="surface-panel overflow-hidden p-4 sm:p-5">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="quiet-label">Module overview</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            Deterministic module lanes keep the full pack readable without turning the
+            overview into a hairball.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary">{visibleNodeIds.length} visible concepts</Badge>
-          {activeStarterPathTitle ? (
-            <Badge variant="outline">{activeStarterPathTitle}</Badge>
-          ) : null}
-        </div>
+        <p className="text-sm text-muted-foreground">
+          {visibleNodeIds.length} visible concepts
+          {activeStarterPathTitle ? ` · ${activeStarterPathTitle}` : ""}
+        </p>
       </div>
 
-      <div className="p-4 sm:p-5">
+      <div
+        className="canvas-surface overflow-auto rounded-[1.45rem] border border-border/70"
+        ref={scrollViewportRef}
+      >
         <div
-          className="canvas-surface overflow-auto rounded-[1.35rem] border border-border/80"
-          ref={scrollViewportRef}
+          aria-label={canvasLabel}
+          className="relative"
+          style={{
+            height: layout.canvasHeight,
+            minHeight: 520,
+            width: layout.canvasWidth,
+          }}
         >
-          <div
-            aria-label={canvasLabel}
-            className="relative"
-            style={{
-              height: layout.canvasHeight,
-              minHeight: 520,
-              width: layout.canvasWidth,
-            }}
-          >
-            {layout.lanes.map((lane) => (
-              <div
-                className="pointer-events-none absolute bottom-8 top-6 rounded-[1.35rem] border border-border/60 bg-background/30"
-                key={lane.module}
-                style={{
-                  left: lane.x,
-                  width: lane.width,
-                }}
-              >
-                <div className="absolute left-4 right-4 top-4">
-                  <p className="font-display text-lg text-foreground">{lane.module}</p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                    {lane.nodeIds.filter((nodeId) => visibleNodeIdSet.has(nodeId)).length}
-                    {" "}
-                    visible
-                  </p>
-                </div>
-              </div>
-            ))}
-
-            <svg
-              aria-hidden="true"
-              className="absolute inset-0 h-full w-full"
-              viewBox={`0 0 ${layout.canvasWidth} ${layout.canvasHeight}`}
+          {layout.lanes.map((lane) => (
+            <div
+              className="pointer-events-none absolute bottom-8 top-6 rounded-[1.4rem] bg-background/22"
+              key={lane.module}
+              style={{
+                left: lane.x,
+                width: lane.width,
+              }}
             >
-              {visibleEdges.map((edge) => {
-                const sourceNode = visibleNodeMap.get(edge.source);
-                const targetNode = visibleNodeMap.get(edge.target);
+              <div className="absolute left-5 right-5 top-5">
+                <p className="font-display text-lg text-foreground">{lane.module}</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                  {lane.nodeIds.filter((nodeId) => visibleNodeIdSet.has(nodeId)).length} visible
+                </p>
+              </div>
+            </div>
+          ))}
 
-                if (!sourceNode || !targetNode) {
-                  return null;
-                }
+          <svg
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full"
+            viewBox={`0 0 ${layout.canvasWidth} ${layout.canvasHeight}`}
+          >
+            {visibleEdges.map((edge) => {
+              const sourceNode = visibleNodeMap.get(edge.source);
+              const targetNode = visibleNodeMap.get(edge.target);
 
-                const isSelectedEdge = activeEdgeIds.includes(edge.id);
-                const isPathEdge = activeStarterPathEdgeIds.includes(edge.id);
-                const strokeOpacity = isSelectedEdge
-                  ? 0.82
-                  : isPathEdge
-                    ? 0.42
+              if (!sourceNode || !targetNode) {
+                return null;
+              }
+
+              const isSelectedEdge = activeEdgeIds.includes(edge.id);
+              const isPathEdge = activeStarterPathEdgeIds.includes(edge.id);
+              const strokeOpacity = isSelectedEdge
+                ? 0.76
+                : isPathEdge
+                  ? 0.34
+                  : focusedNodeId
+                    ? 0.08
                     : 0.12;
 
-                return (
-                  <motion.line
-                    animate={{
-                      strokeOpacity,
-                      strokeWidth: isSelectedEdge ? 2.6 : isPathEdge ? 1.8 : 1.2,
-                    }}
-                    initial={false}
-                    key={edge.id}
-                    stroke={isSelectedEdge ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))"}
-                    strokeDasharray={isPathEdge && !isSelectedEdge ? "6 8" : undefined}
-                    transition={
-                      isSelectedEdge || isPathEdge
-                        ? getPathHighlightTransition(motionMode)
-                        : getNodeSelectionTransition(motionMode)
-                    }
-                    x1={sourceNode.position.x}
-                    x2={targetNode.position.x}
-                    y1={sourceNode.position.y}
-                    y2={targetNode.position.y}
-                  />
-                );
-              })}
-            </svg>
+              return (
+                <motion.line
+                  animate={{
+                    strokeOpacity,
+                    strokeWidth: isSelectedEdge ? 2.4 : isPathEdge ? 1.6 : 1.1,
+                  }}
+                  initial={false}
+                  key={edge.id}
+                  stroke={isSelectedEdge ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))"}
+                  strokeDasharray={isPathEdge && !isSelectedEdge ? "6 10" : undefined}
+                  transition={
+                    isSelectedEdge || isPathEdge
+                      ? getPathHighlightTransition(motionMode)
+                      : getNodeSelectionTransition(motionMode)
+                  }
+                  x1={sourceNode.position.x}
+                  x2={targetNode.position.x}
+                  y1={sourceNode.position.y}
+                  y2={targetNode.position.y}
+                />
+              );
+            })}
+          </svg>
 
-            {layout.nodes
-              .filter((node) => visibleNodeIdSet.has(node.id))
-              .map((positionedNode) => {
-                const node = graph.nodes.find((item) => item.id === positionedNode.id);
+          {layout.nodes
+            .filter((node) => visibleNodeIdSet.has(node.id))
+            .map((positionedNode) => {
+              const node = graph.nodes.find((item) => item.id === positionedNode.id);
 
-                if (!node) {
-                  return null;
-                }
+              if (!node) {
+                return null;
+              }
 
-                const completionState = getCompletionState(nodeStatuses[node.id]);
-                const isSelected = node.id === selectedNodeId;
-                const isPreview = node.id === previewNodeId && !isSelected;
+              const completionState = getCompletionState(nodeStatuses[node.id]);
+              const isSelected = node.id === selectedNodeId;
+              const isPreview = node.id === previewNodeId && !isSelected;
+              const isPathNode = activeStarterPathNodeIds.includes(node.id);
+              const isMuted = Boolean(focusedNodeId) && !isSelected && !isPreview && !isPathNode;
 
-                return (
-                  <motion.button
-                    animate={{
-                      boxShadow: isSelected
-                        ? "0 26px 58px -36px rgba(31, 68, 79, 0.62)"
-                        : isPreview
-                          ? "0 20px 42px -34px rgba(31, 68, 79, 0.4)"
-                          : "0 16px 32px -28px rgba(58, 76, 88, 0.36)",
-                    }}
-                    aria-current={isSelected ? "page" : undefined}
-                    aria-label={`${node.title}. ${node.module}. Difficulty ${node.difficulty}.`}
-                    className={cn(
-                      "absolute z-10 w-44 -translate-x-1/2 -translate-y-1/2 rounded-[1.1rem] border px-4 py-3 text-left",
-                      getNodeTone(isSelected, isPreview, completionState),
-                    )}
-                    initial={false}
-                    key={node.id}
-                    onBlur={() => onPreviewNode?.(null)}
-                    onClick={() => onActivateNode?.(node.id)}
-                    onFocus={() => onPreviewNode?.(node.id)}
-                    onMouseEnter={() => onPreviewNode?.(node.id)}
-                    onMouseLeave={() => onPreviewNode?.(null)}
-                    ref={(element) => {
-                      nodeButtonRefs.current[node.id] = element;
-                    }}
-                    style={{
-                      left: positionedNode.position.x,
-                      top: positionedNode.position.y,
-                    }}
-                    transition={getNodeSelectionTransition(motionMode)}
-                    type="button"
-                    whileHover={getNodeHoverAnimation(motionMode)}
-                    whileTap={getNodePressAnimation(motionMode)}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <span
-                        aria-hidden="true"
-                        className={cn("h-2.5 w-2.5 rounded-full", getStatusDotTone(completionState))}
-                      />
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-75">
-                        {node.difficulty}/5
-                      </span>
-                    </div>
-                    <p className="mt-3 font-display text-sm leading-5">{node.shortTitle}</p>
-                  </motion.button>
-                );
-              })}
-          </div>
+              return (
+                <motion.button
+                  animate={{
+                    boxShadow: isSelected
+                      ? "0 22px 52px -38px rgba(31, 68, 79, 0.5)"
+                      : isPreview
+                        ? "0 16px 34px -28px rgba(31, 68, 79, 0.26)"
+                        : "0 12px 22px -20px rgba(58, 76, 88, 0.16)",
+                    opacity: isMuted ? 0.52 : 1,
+                  }}
+                  aria-current={isSelected ? "page" : undefined}
+                  aria-label={`${node.title}. ${node.module}. Difficulty ${node.difficulty}.`}
+                  className={cn(
+                    "absolute z-10 w-40 -translate-x-1/2 -translate-y-1/2 rounded-[1.1rem] border px-4 py-3 text-left",
+                    getNodeTone(
+                      isSelected,
+                      isPreview,
+                      isPathNode,
+                      isMuted,
+                      completionState,
+                    ),
+                  )}
+                  initial={false}
+                  key={node.id}
+                  onBlur={() => onPreviewNode?.(null)}
+                  onClick={() => onActivateNode?.(node.id)}
+                  onFocus={() => onPreviewNode?.(node.id)}
+                  onMouseEnter={() => onPreviewNode?.(node.id)}
+                  onMouseLeave={() => onPreviewNode?.(null)}
+                  ref={(element) => {
+                    nodeButtonRefs.current[node.id] = element;
+                  }}
+                  style={{
+                    left: positionedNode.position.x,
+                    top: positionedNode.position.y,
+                  }}
+                  transition={getNodeSelectionTransition(motionMode)}
+                  type="button"
+                  whileHover={getNodeHoverAnimation(motionMode)}
+                  whileTap={getNodePressAnimation(motionMode)}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span
+                      aria-hidden="true"
+                      className={cn("h-2.5 w-2.5 rounded-full", getStatusDotTone(completionState))}
+                    />
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-70">
+                      {node.difficulty}/5
+                    </span>
+                  </div>
+                  <p className="mt-3 font-display text-sm leading-5">{node.shortTitle}</p>
+                </motion.button>
+              );
+            })}
         </div>
       </div>
     </section>

@@ -6,15 +6,12 @@ import { Search } from "lucide-react";
 import { useDeferredValue, useMemo, useState } from "react";
 import { ModuleOverviewCanvas } from "@/components/graph/module-overview-canvas";
 import { AppShell } from "@/components/layout/app-shell";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  DEFAULT_ML_NODE_ID,
+  mlFundamentalsGraph,
+  mlFundamentalsModuleOrder,
+} from "@/data/ml-fundamentals";
 import {
   defaultMapFilters,
   getFilteredMapNodeIds,
@@ -30,11 +27,6 @@ import {
 } from "@/lib/progress";
 import type { RelationType } from "@/lib/schema";
 import { cn } from "@/lib/utils";
-import {
-  DEFAULT_ML_NODE_ID,
-  mlFundamentalsGraph,
-  mlFundamentalsModuleOrder,
-} from "@/data/ml-fundamentals";
 import { useLearningProgressStore } from "@/stores/learning-progress";
 
 const completionFilterOptions: Array<{
@@ -55,42 +47,42 @@ const relationTypeOptions: Array<{
   {
     value: "prerequisite_of",
     label: "Prerequisite",
-    description: "One concept should come first.",
+    description: "Should come first.",
   },
   {
     value: "uses",
     label: "Uses",
-    description: "A concept depends on another in practice.",
+    description: "Used in practice.",
   },
   {
     value: "optimizes",
     label: "Optimizes",
-    description: "An optimization method improves an objective.",
+    description: "Improves an objective.",
   },
   {
     value: "evaluates",
     label: "Evaluates",
-    description: "A metric or process judges model behavior.",
+    description: "Judges model behavior.",
   },
   {
     value: "regularizes",
     label: "Regularizes",
-    description: "A technique controls complexity or variance.",
+    description: "Controls complexity.",
   },
   {
     value: "contrasts_with",
     label: "Contrasts",
-    description: "Two concepts are useful to compare directly.",
+    description: "Useful direct comparison.",
   },
   {
     value: "example_of",
     label: "Example",
-    description: "A concept is a concrete case of a broader idea.",
+    description: "Concrete case.",
   },
   {
     value: "extension_of",
     label: "Extension",
-    description: "A concept extends an earlier one.",
+    description: "Builds on an earlier idea.",
   },
 ] as const;
 
@@ -169,10 +161,8 @@ function FilterSection({
   title: string;
 }) {
   return (
-    <div className="space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-        {title}
-      </p>
+    <div className="space-y-2">
+      <p className="quiet-label">{title}</p>
       <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
@@ -190,10 +180,10 @@ function ToggleChip({
   return (
     <button
       className={cn(
-        "rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors duration-fast",
+        "rounded-full border px-3 py-2 text-sm transition-colors",
         active
-          ? "border-primary/30 bg-primary text-primary-foreground"
-          : "border-border bg-background/90 text-foreground hover:bg-secondary/60",
+          ? "border-primary/30 bg-primary/10 text-foreground"
+          : "border-border/70 bg-background/70 text-muted-foreground hover:text-foreground",
       )}
       onClick={onClick}
       type="button"
@@ -203,31 +193,17 @@ function ToggleChip({
   );
 }
 
-function ProgressRow({
+function ProgressLine({
   label,
-  progress,
+  value,
 }: {
   label: string;
-  progress: { mastered?: number; percentComplete?: number; percentReady?: number; ready?: number; total: number };
+  value: string;
 }) {
-  const percent =
-    progress.percentComplete ?? progress.percentReady ?? 0;
-  const numerator = progress.mastered ?? progress.ready ?? 0;
-
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-3">
-        <p className="font-medium text-foreground">{label}</p>
-        <p className="text-sm text-muted-foreground">
-          {numerator}/{progress.total}
-        </p>
-      </div>
-      <div className="h-2 rounded-full bg-secondary/80">
-        <div
-          className="h-full rounded-full bg-primary transition-[width] duration-fast"
-          style={{ width: `${percent}%` }}
-        />
-      </div>
+    <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+      <span>{label}</span>
+      <span className="text-foreground">{value}</span>
     </div>
   );
 }
@@ -303,6 +279,7 @@ export function MapWorkspace() {
         <ModuleOverviewCanvas
           activeEdgeIds={activeEdgeIds}
           activeStarterPathEdgeIds={starterPathEdgeIds}
+          activeStarterPathNodeIds={activeStarterPath.nodeIds}
           activeStarterPathTitle={activeStarterPath.title}
           canvasLabel="Gradient Atlas module overview"
           graph={mlFundamentalsGraph}
@@ -316,259 +293,209 @@ export function MapWorkspace() {
         />
       }
       currentSection="map"
-      description="Browse the full ML fundamentals atlas by module, narrow the view with search and filter chips, and jump directly into a concept once the prerequisites and recommendation context look right."
+      description="See the full curriculum as deterministic module lanes, then narrow it with just enough search and filtering to stay readable."
+      headerTop={
+        <div className="space-y-4">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">
+                From Foundations to Unsupervised Learning.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Current path: <span className="text-foreground">{activeStarterPath.title}</span>
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {mlFundamentalsGraph.starterPaths.map((starterPath) => (
+                <ToggleChip
+                  active={starterPath.id === activeStarterPath.id}
+                  key={starterPath.id}
+                  onClick={() => setCurrentStarterPathId(starterPath.id)}
+                >
+                  {starterPath.title}
+                </ToggleChip>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-[1.1rem] border border-border/70 bg-background/82 px-4 py-3 shadow-soft">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <input
+              className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground"
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search by title, alias, or key term"
+              value={query}
+            />
+          </div>
+        </div>
+      }
       leftRail={
-        <div className="space-y-4 lg:sticky lg:top-24">
-          <Card className="surface-panel">
-            <CardHeader>
-              <CardTitle className="text-base">Search and filters</CardTitle>
-              <CardDescription>
-                Reduce cognitive load before scanning the full atlas.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-[0.18em] text-primary" htmlFor="map-search">
-                  Search
-                </label>
-                <div className="flex items-center gap-3 rounded-[1.05rem] border border-border/80 bg-background/90 px-4 py-3 shadow-soft">
-                  <Search className="h-4 w-4 text-muted-foreground" />
-                  <input
-                    className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground"
-                    id="map-search"
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Search by title, alias, or key term"
-                    value={query}
-                  />
-                </div>
-              </div>
+        <div className="surface-panel space-y-5 p-5">
+          <FilterSection title="Module">
+            {mlFundamentalsModuleOrder.map((module) => (
+              <ToggleChip
+                active={filters.modules.includes(module)}
+                key={module}
+                onClick={() =>
+                  setFilters((currentFilters) => ({
+                    ...currentFilters,
+                    modules: toggleSelection(currentFilters.modules, module),
+                  }))
+                }
+              >
+                {module}
+              </ToggleChip>
+            ))}
+          </FilterSection>
 
-              <FilterSection title="Starter path">
-                {mlFundamentalsGraph.starterPaths.map((starterPath) => (
-                  <ToggleChip
-                    active={starterPath.id === activeStarterPath.id}
-                    key={starterPath.id}
-                    onClick={() => setCurrentStarterPathId(starterPath.id)}
-                  >
-                    {starterPath.title}
-                  </ToggleChip>
-                ))}
-              </FilterSection>
+          <FilterSection title="Difficulty">
+            {[1, 2, 3, 4, 5].map((difficulty) => (
+              <ToggleChip
+                active={filters.difficulties.includes(difficulty)}
+                key={difficulty}
+                onClick={() =>
+                  setFilters((currentFilters) => ({
+                    ...currentFilters,
+                    difficulties: toggleSelection(
+                      currentFilters.difficulties,
+                      difficulty,
+                    ),
+                  }))
+                }
+              >
+                Level {difficulty}
+              </ToggleChip>
+            ))}
+          </FilterSection>
 
-              <FilterSection title="Module">
-                {mlFundamentalsModuleOrder.map((module) => (
-                  <ToggleChip
-                    active={filters.modules.includes(module)}
-                    key={module}
-                    onClick={() =>
-                      setFilters((currentFilters) => ({
-                        ...currentFilters,
-                        modules: toggleSelection(currentFilters.modules, module),
-                      }))
-                    }
-                  >
-                    {module}
-                  </ToggleChip>
-                ))}
-              </FilterSection>
+          <FilterSection title="Completion">
+            {completionFilterOptions.map((option) => (
+              <ToggleChip
+                active={filters.completionStates.includes(option.value)}
+                key={option.value}
+                onClick={() =>
+                  setFilters((currentFilters) => ({
+                    ...currentFilters,
+                    completionStates: toggleSelection(
+                      currentFilters.completionStates,
+                      option.value,
+                    ),
+                  }))
+                }
+              >
+                {option.label}
+              </ToggleChip>
+            ))}
+          </FilterSection>
 
-              <FilterSection title="Difficulty">
-                {[1, 2, 3, 4, 5].map((difficulty) => (
-                  <ToggleChip
-                    active={filters.difficulties.includes(difficulty)}
-                    key={difficulty}
-                    onClick={() =>
-                      setFilters((currentFilters) => ({
-                        ...currentFilters,
-                        difficulties: toggleSelection(
-                          currentFilters.difficulties,
-                          difficulty,
-                        ),
-                      }))
-                    }
-                  >
-                    Level {difficulty}
-                  </ToggleChip>
-                ))}
-              </FilterSection>
+          <FilterSection title="Relation type">
+            {relationTypeOptions.map((option) => (
+              <ToggleChip
+                active={filters.relationTypes.includes(option.value)}
+                key={option.value}
+                onClick={() =>
+                  setFilters((currentFilters) => ({
+                    ...currentFilters,
+                    relationTypes: toggleSelection(
+                      currentFilters.relationTypes,
+                      option.value,
+                    ),
+                  }))
+                }
+              >
+                {option.label}
+              </ToggleChip>
+            ))}
+          </FilterSection>
 
-              <FilterSection title="Completion">
-                {completionFilterOptions.map((option) => (
-                  <ToggleChip
-                    active={filters.completionStates.includes(option.value)}
-                    key={option.value}
-                    onClick={() =>
-                      setFilters((currentFilters) => ({
-                        ...currentFilters,
-                        completionStates: toggleSelection(
-                          currentFilters.completionStates,
-                          option.value,
-                        ),
-                      }))
-                    }
-                  >
-                    {option.label}
-                  </ToggleChip>
-                ))}
-              </FilterSection>
+          <div className="soft-divider space-y-3 pt-4">
+            <p className="quiet-label">Progress</p>
+            <ProgressLine
+              label="Overall"
+              value={`${overallProgress.touched}/${overallProgress.total}`}
+            />
+            {mlFundamentalsModuleOrder.map((module) => {
+              const progress = getModuleProgressSummary(
+                mlFundamentalsGraph,
+                module,
+                nodeStatuses,
+              );
 
-              <FilterSection title="Relation type">
-                {relationTypeOptions.map((option) => (
-                  <ToggleChip
-                    active={filters.relationTypes.includes(option.value)}
-                    key={option.value}
-                    onClick={() =>
-                      setFilters((currentFilters) => ({
-                        ...currentFilters,
-                        relationTypes: toggleSelection(
-                          currentFilters.relationTypes,
-                          option.value,
-                        ),
-                      }))
-                    }
-                  >
-                    {option.label}
-                  </ToggleChip>
-                ))}
-              </FilterSection>
-            </CardContent>
-          </Card>
-
-          <Card className="surface-panel">
-            <CardHeader>
-              <CardTitle className="text-base">Progress</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-muted-foreground">
-              <ProgressRow
-                label="Overall mastered"
-                progress={overallProgress}
-              />
-              {mlFundamentalsModuleOrder.map((module) => (
-                <ProgressRow
+              return (
+                <ProgressLine
                   key={module}
                   label={module}
-                  progress={getModuleProgressSummary(
-                    mlFundamentalsGraph,
-                    module,
-                    nodeStatuses,
-                  )}
+                  value={`${progress.ready}/${progress.total}`}
                 />
-              ))}
-            </CardContent>
-          </Card>
+              );
+            })}
+          </div>
         </div>
       }
       rightPanel={
-        <>
-          <Card className="surface-panel">
-            <CardHeader>
-              <div className="flex items-center justify-between gap-3">
-                <CardTitle className="text-base">Preview</CardTitle>
-                {previewNode ? <Badge variant="secondary">{previewNode.module}</Badge> : null}
-              </div>
-              <CardDescription>
-                Hover or focus a concept for a quick read, then click it to open the
-                full learn route.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-muted-foreground">
-              {previewNode ? (
-                <>
-                  <div className="space-y-2">
-                    <p className="font-display text-xl text-foreground">
-                      {previewNode.title}
-                    </p>
-                    <p>{previewNode.summary}</p>
+        <div className="surface-panel space-y-5 p-5">
+          <div className="space-y-2">
+            <p className="quiet-label">Snapshot</p>
+            {previewNode ? (
+              <>
+                <h2 className="font-display text-2xl text-foreground">{previewNode.title}</h2>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  {previewNode.summary}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {previewNode.module} · {previewNode.estimatedMinutes} min ·{" "}
+                  {getUnmetPrerequisiteIds(
+                    mlFundamentalsGraph,
+                    previewNode.id,
+                    nodeStatuses,
+                  ).length} unmet prerequisites
+                </p>
+                {previewWarning ? (
+                  <div className="rounded-[1rem] border border-amber-300/70 bg-amber-50/80 px-4 py-3 text-sm leading-6 text-amber-950/80">
+                    {previewWarning}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline">Difficulty {previewNode.difficulty}/5</Badge>
-                    <Badge variant="outline">{previewNode.estimatedMinutes} min</Badge>
-                    <Badge variant="outline">
-                      {getUnmetPrerequisiteIds(
-                        mlFundamentalsGraph,
-                        previewNode.id,
-                        nodeStatuses,
-                      ).length} unmet prerequisites
-                    </Badge>
-                  </div>
-                  {previewWarning ? (
-                    <div className="rounded-xl bg-amber-50/80 px-3 py-3 text-amber-950/80">
-                      {previewWarning}
-                    </div>
-                  ) : null}
-                  <Button
-                    onClick={() => navigateToLearn(previewNode.id)}
-                    size="sm"
-                    type="button"
-                  >
-                    Open in learn
-                  </Button>
-                </>
-              ) : (
-                <p>No concept matches the current filter set.</p>
-              )}
-            </CardContent>
-          </Card>
+                ) : null}
+                <Button onClick={() => navigateToLearn(previewNode.id)} size="sm" type="button">
+                  Open in learn
+                </Button>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No concept matches the current filter set.
+              </p>
+            )}
+          </div>
 
-          <Card className="surface-panel">
-            <CardHeader>
-              <CardTitle className="text-base">Recommended next</CardTitle>
-              <CardDescription>
-                Recommendations combine starter-path order, prerequisite readiness,
-                and your current progress.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {recommendations.map((recommendation) => (
-                <div
-                  className="rounded-xl border border-border/70 bg-background/80 p-3"
-                  key={recommendation.node.id}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-foreground">
-                        {recommendation.node.title}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {recommendation.whyRecommended}
-                      </p>
-                    </div>
-                    <Button
-                      onClick={() => navigateToLearn(recommendation.node.id)}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      Open
-                    </Button>
-                  </div>
-                  {recommendation.warning ? (
-                    <p className="mt-3 text-sm leading-6 text-amber-900/85">
-                      {recommendation.warning}
-                    </p>
-                  ) : null}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+          {recommendations[0] ? (
+            <div className="soft-divider space-y-2 pt-4">
+              <p className="quiet-label">Recommended next</p>
+              <p className="font-medium text-foreground">{recommendations[0].node.title}</p>
+              <p className="text-sm leading-6 text-muted-foreground">
+                {recommendations[0].whyRecommended}
+              </p>
+              {recommendations[0].warning ? (
+                <p className="text-sm leading-6 text-amber-900/85">
+                  {recommendations[0].warning}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
-          <Card className="surface-panel">
-            <CardHeader>
-              <CardTitle className="text-base">Relation legend</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <div className="soft-divider space-y-2 pt-4">
+            <p className="quiet-label">Relation legend</p>
+            <div className="space-y-2 text-sm text-muted-foreground">
               {relationTypeOptions.map((relationType) => (
-                <div key={relationType.value}>
-                  <p className="font-medium text-foreground">{relationType.label}</p>
-                  <p>{relationType.description}</p>
+                <div className="flex items-start justify-between gap-3" key={relationType.value}>
+                  <span className="text-foreground">{relationType.label}</span>
+                  <span className="max-w-[11rem] text-right">{relationType.description}</span>
                 </div>
               ))}
-            </CardContent>
-          </Card>
-        </>
+            </div>
+          </div>
+        </div>
       }
-      rightPanelLabel="Overview preview"
-      sectionEyebrow="Curriculum overview"
+      rightPanelLabel="Overview snapshot"
+      sectionEyebrow="Overview"
       title="ML fundamentals map"
     />
   );
