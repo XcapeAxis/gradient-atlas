@@ -32,7 +32,7 @@ describe("LearnWorkspace", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: /Logistic Regression\. Related concept\./i,
+        name: /Logistic Regression\. Context concept\./i,
       }),
     );
 

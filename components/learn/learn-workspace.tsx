@@ -4,38 +4,26 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { ChevronRight, PanelRightClose, PanelRightOpen, Search } from "lucide-react";
-import { LayoutGroup } from "framer-motion";
-import {
-  startTransition,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { LearnDetailPanel } from "@/components/learn/learn-detail-panel";
 import { LearnGraphCanvas } from "@/components/learn/learn-graph-canvas";
 import { TopBar } from "@/components/layout/top-bar";
 import { Button } from "@/components/ui/button";
-import {
-  mlFundamentalsGraph,
-  mlFundamentalsModuleOrder,
-} from "@/data/ml-fundamentals";
+import { mlFundamentalsGraph } from "@/data/ml-fundamentals";
 import {
   getRecommendedConcepts,
   getUnmetPrerequisiteWarning,
   searchCurriculumNodes,
 } from "@/lib/curriculum-navigation";
 import { getLearnNeighborhood } from "@/lib/learn-graph";
-import { getOverallProgressSummary } from "@/lib/progress";
 import { cn } from "@/lib/utils";
 import { useLearningProgressStore } from "@/stores/learning-progress";
 
 export function LearnWorkspace({ initialNodeId }: { initialNodeId: string }) {
   const router = useRouter();
   const [activeNodeId, setActiveNodeId] = useState(initialNodeId);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRelationId, setSelectedRelationId] = useState<string | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const currentStarterPathId = useLearningProgressStore(
     (state) => state.currentStarterPathId,
@@ -52,7 +40,6 @@ export function LearnWorkspace({ initialNodeId }: { initialNodeId: string }) {
   useEffect(() => {
     setActiveNodeId(initialNodeId);
     setCurrentNodeId(initialNodeId);
-    setSelectedRelationId(null);
   }, [initialNodeId, setCurrentNodeId]);
 
   const neighborhood = useMemo(
@@ -111,15 +98,11 @@ export function LearnWorkspace({ initialNodeId }: { initialNodeId: string }) {
     }),
     [neighborhood.visibleNodes],
   );
-  const overallProgress = useMemo(
-    () => getOverallProgressSummary(mlFundamentalsGraph, nodeStatuses),
-    [nodeStatuses],
-  );
+  const currentPathIndex = neighborhood.starterPath.nodeIds.indexOf(activeNode.id);
 
   function navigateToNode(nodeId: string) {
     setActiveNodeId(nodeId);
     setCurrentNodeId(nodeId);
-    setSelectedRelationId(null);
 
     if (nodeId !== initialNodeId) {
       startTransition(() => {
@@ -139,49 +122,53 @@ export function LearnWorkspace({ initialNodeId }: { initialNodeId: string }) {
     setSearchQuery("");
   }
 
-  const currentPathIndex = neighborhood.starterPath.nodeIds.indexOf(activeNode.id);
-
   return (
-    <LayoutGroup id="learn-workspace">
-      <div className="min-h-screen">
-        <a
-          className="sr-only left-4 top-4 z-50 rounded-md bg-background px-4 py-2 text-sm font-medium text-foreground shadow-soft focus:not-sr-only focus:absolute"
-          href="#main-content"
-        >
-          Skip to content
-        </a>
+    <div className="min-h-screen">
+      <a
+        className="sr-only left-4 top-4 z-50 rounded-md bg-background px-4 py-2 text-sm font-medium text-foreground shadow-soft focus:not-sr-only focus:absolute"
+        href="#main-content"
+      >
+        Skip to content
+      </a>
 
-        <TopBar currentSection="learn" />
+      <TopBar currentSection="learn" />
 
-        <main className="mx-auto max-w-[1480px] px-5 pb-12 pt-8" id="main-content">
-          <div className="space-y-6">
-            <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-              <div className="space-y-3">
-                <nav
-                  aria-label="Breadcrumb"
-                  className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
-                >
-                  <Link className="transition-colors hover:text-foreground" href="/">
-                    Home
-                  </Link>
-                  <ChevronRight className="h-4 w-4" />
-                  <span>Learn</span>
-                  <ChevronRight className="h-4 w-4" />
-                  <span>{activeNode.module}</span>
-                  <ChevronRight className="h-4 w-4" />
-                  <span className="text-foreground">{activeNode.shortTitle}</span>
-                </nav>
-                <div>
-                  <p className="quiet-label">Focused study</p>
-                  <h1 className="mt-2 font-display text-4xl text-foreground sm:text-[3.2rem]">
-                    {activeNode.title}
-                  </h1>
-                </div>
+      <main className="mx-auto max-w-[1520px] px-5 pb-12 pt-6" id="main-content">
+        <div className="space-y-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+            <div className="space-y-3">
+              <nav
+                aria-label="Breadcrumb"
+                className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+              >
+                <Link className="transition-colors hover:text-foreground" href="/">
+                  Home
+                </Link>
+                <ChevronRight className="h-4 w-4" />
+                <span>Learn</span>
+                <ChevronRight className="h-4 w-4" />
+                <span>{activeNode.module}</span>
+              </nav>
+              <div className="space-y-2">
+                <p className="quiet-label">Focused study</p>
+                <h1 className="font-display text-4xl text-foreground sm:text-[3.15rem]">
+                  {activeNode.title}
+                </h1>
+                <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                  {activeNode.summary}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {neighborhood.starterPath.title}
+                  {currentPathIndex >= 0
+                    ? ` | Step ${currentPathIndex + 1} of ${neighborhood.starterPath.nodeIds.length}`
+                    : " | Off the current path"}
+                </p>
               </div>
+            </div>
 
+            <div className="w-full max-w-xl space-y-3">
               <form
                 aria-label="Quick concept search"
-                className="w-full max-w-xl"
                 onSubmit={submitSearch}
                 role="search"
               >
@@ -236,40 +223,9 @@ export function LearnWorkspace({ initialNodeId }: { initialNodeId: string }) {
                   ) : null}
                 </div>
               </form>
-            </div>
 
-            <section className="surface-panel flex flex-col gap-4 p-4 xl:flex-row xl:items-center xl:justify-between">
-              <div className="space-y-3">
-                <p className="quiet-label">Study strip</p>
-                <div className="flex flex-wrap gap-2">
-                  {mlFundamentalsModuleOrder.map((module) => (
-                    <span
-                      className={cn(
-                        "rounded-full px-3 py-1.5 text-sm",
-                        module === activeNode.module
-                          ? "bg-primary/10 text-foreground"
-                          : "text-muted-foreground",
-                      )}
-                      key={module}
-                    >
-                      {module}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between xl:justify-end">
-                <div className="space-y-1 text-sm text-muted-foreground">
-                  <p>
-                    {neighborhood.starterPath.title}
-                    {currentPathIndex >= 0
-                      ? ` · Step ${currentPathIndex + 1} of ${neighborhood.starterPath.nodeIds.length}`
-                      : " · Off the current path"}
-                  </p>
-                  <p>
-                    {overallProgress.touched}/{overallProgress.total} touched
-                  </p>
-                </div>
+              <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                <span>Graph first. Details only when needed.</span>
                 <Button
                   onClick={() => setIsDetailOpen((currentValue) => !currentValue)}
                   size="sm"
@@ -284,41 +240,36 @@ export function LearnWorkspace({ initialNodeId }: { initialNodeId: string }) {
                   {isDetailOpen ? "Hide details" : "Show details"}
                 </Button>
               </div>
-            </section>
-
-            <div
-              className={cn(
-                "grid gap-6",
-                isDetailOpen && "xl:grid-cols-[minmax(0,1fr),360px]",
-              )}
-            >
-              <LearnGraphCanvas
-                neighborhood={neighborhood}
-                onNavigate={navigateToNode}
-                onSelectRelation={setSelectedRelationId}
-                selectedRelationId={selectedRelationId}
-              />
-
-              {isDetailOpen ? (
-                <aside
-                  aria-label="Concept detail view"
-                  className="space-y-4 xl:sticky xl:top-24 xl:h-fit"
-                >
-                  <LearnDetailPanel
-                    node={activeNode}
-                    nodeStatus={nodeStatuses[activeNode.id]}
-                    onNavigate={navigateToNode}
-                    onSetNodeStatus={(status) => setNodeStatus(activeNode.id, status)}
-                    recommendations={recommendations}
-                    relationshipGroups={relationshipGroups}
-                    unmetWarning={unmetWarning}
-                  />
-                </aside>
-              ) : null}
             </div>
           </div>
-        </main>
-      </div>
-    </LayoutGroup>
+
+          <div
+            className={cn(
+              "grid gap-5",
+              isDetailOpen && "xl:grid-cols-[minmax(0,1fr),360px]",
+            )}
+          >
+            <LearnGraphCanvas neighborhood={neighborhood} onNavigate={navigateToNode} />
+
+            {isDetailOpen ? (
+              <aside
+                aria-label="Concept detail view"
+                className="space-y-4 xl:sticky xl:top-24 xl:h-fit"
+              >
+                <LearnDetailPanel
+                  node={activeNode}
+                  nodeStatus={nodeStatuses[activeNode.id]}
+                  onNavigate={navigateToNode}
+                  onSetNodeStatus={(status) => setNodeStatus(activeNode.id, status)}
+                  recommendations={recommendations}
+                  relationshipGroups={relationshipGroups}
+                  unmetWarning={unmetWarning}
+                />
+              </aside>
+            ) : null}
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }

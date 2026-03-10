@@ -11,43 +11,20 @@ export type LearnVisibleNodeRole =
   | "current"
   | "prerequisite"
   | "dependent"
-  | "related"
-  | "supplemental";
+  | "related";
 
-export interface LearnVisibleNode {
-  id: string;
-  node: CurriculumNode;
-  role: LearnVisibleNodeRole;
-  position: { x: number; y: number };
-  isDimmed: boolean;
-}
-
-export interface LearnVisibleEdge {
-  id: string;
-  edge: GraphEdge;
-  isDirectToCurrent: boolean;
-  isDimmed: boolean;
-}
-
-export interface LearnRecommendation {
-  node: CurriculumNode;
-  whyNext: string;
-}
-
-export interface LearnNeighborhood {
-  currentNode: CurriculumNode;
-  starterPath: StarterPath;
-  visibleNodeIds: string[];
-  visibleNodes: LearnVisibleNode[];
-  visibleEdges: LearnVisibleEdge[];
-  nodeOrder: string[];
-  recommendations: LearnRecommendation[];
-}
-
+export type LearnOverflowLane = Exclude<LearnVisibleNodeRole, "current">;
+export type LearnEdgeVisualGroup = "primary" | "secondary";
 export type GraphDirection = "left" | "right" | "up" | "down";
 
-const MIN_VISIBLE_NODES = 7;
-const MAX_VISIBLE_NODES = 15;
+export const LEARN_WORLD = {
+  height: 600,
+  width: 980,
+} as const;
+
+const MAX_PREREQUISITES = 2;
+const MAX_DEPENDENTS = 2;
+const MAX_RELATED = 2;
 const MAX_RECOMMENDATIONS = 3;
 
 const relatedRelationPriority: Record<RelationType, number> = {
@@ -60,6 +37,56 @@ const relatedRelationPriority: Record<RelationType, number> = {
   regularizes: 6,
   contrasts_with: 7,
 };
+
+export interface LearnVisibleNode {
+  id: string;
+  node: CurriculumNode;
+  role: LearnVisibleNodeRole;
+  position: { x: number; y: number };
+}
+
+export interface LearnVisibleEdge {
+  id: string;
+  edge: GraphEdge;
+  isIncidentToCurrent: boolean;
+  isRecommended: boolean;
+  visualGroup: LearnEdgeVisualGroup;
+}
+
+export interface LearnOverflowIndicator {
+  count: number;
+  hiddenNodeIds: string[];
+  id: string;
+  label: string;
+  lane: LearnOverflowLane;
+  position: { x: number; y: number };
+}
+
+export interface LearnRecommendation {
+  node: CurriculumNode;
+  whyNext: string;
+}
+
+export interface LearnNeighborhood {
+  currentNode: CurriculumNode;
+  nodeOrder: string[];
+  overflowIndicators: LearnOverflowIndicator[];
+  recommendations: LearnRecommendation[];
+  starterPath: StarterPath;
+  visibleEdgeIds: string[];
+  visibleEdges: LearnVisibleEdge[];
+  visibleNodeIds: string[];
+  visibleNodes: LearnVisibleNode[];
+  worldSize: typeof LEARN_WORLD;
+}
+
+export interface LearnEdgeVisualStyle {
+  dashArray?: string;
+  group: LearnEdgeVisualGroup;
+  hasArrow: boolean;
+  opacity: number;
+  strokeWidth: number;
+}
 
 function getNode(graph: KnowledgeGraph, nodeId: string) {
   const node = graph.nodes.find((item) => item.id === nodeId);
@@ -75,6 +102,35 @@ function sortNodeIdsByTitle(graph: KnowledgeGraph, nodeIds: string[]) {
   return Array.from(new Set(nodeIds)).sort((left, right) =>
     getNode(graph, left).title.localeCompare(getNode(graph, right).title),
   );
+}
+
+function getStarterPathIndex(starterPath: StarterPath, nodeId: string) {
+  return starterPath.nodeIds.indexOf(nodeId);
+}
+
+function sortNodeIdsByLearningPriority(
+  graph: KnowledgeGraph,
+  nodeIds: string[],
+  starterPath: StarterPath,
+) {
+  return Array.from(new Set(nodeIds)).sort((left, right) => {
+    const leftIndex = getStarterPathIndex(starterPath, left);
+    const rightIndex = getStarterPathIndex(starterPath, right);
+
+    if (leftIndex !== -1 && rightIndex !== -1 && leftIndex !== rightIndex) {
+      return leftIndex - rightIndex;
+    }
+
+    if (leftIndex !== -1 && rightIndex === -1) {
+      return -1;
+    }
+
+    if (leftIndex === -1 && rightIndex !== -1) {
+      return 1;
+    }
+
+    return getNode(graph, left).title.localeCompare(getNode(graph, right).title);
+  });
 }
 
 function getDirectPrerequisiteIds(graph: KnowledgeGraph, nodeId: string) {
@@ -101,7 +157,11 @@ function getDirectDependentIds(graph: KnowledgeGraph, nodeId: string) {
   );
 }
 
-function getDirectRelatedIds(graph: KnowledgeGraph, nodeId: string) {
+function getDirectRelatedIds(
+  graph: KnowledgeGraph,
+  nodeId: string,
+  starterPath: StarterPath,
+) {
   const candidateEdges = graph.edges.filter(
     (edge) =>
       edge.relationType !== "prerequisite_of" &&
@@ -132,6 +192,13 @@ function getDirectRelatedIds(graph: KnowledgeGraph, nodeId: string) {
       return leftEdgePriority - rightEdgePriority;
     }
 
+    const leftIndex = getStarterPathIndex(starterPath, left);
+    const rightIndex = getStarterPathIndex(starterPath, right);
+
+    if (leftIndex !== -1 && rightIndex !== -1 && leftIndex !== rightIndex) {
+      return leftIndex - rightIndex;
+    }
+
     return getNode(graph, left).title.localeCompare(getNode(graph, right).title);
   });
 }
@@ -155,138 +222,39 @@ export function resolveStarterPathId(
   );
 }
 
-function getStarterPathSupplementalIds(
-  graph: KnowledgeGraph,
-  currentNodeId: string,
-  starterPath: StarterPath,
-  excludeIds: Set<string>,
-) {
-  const currentIndex = starterPath.nodeIds.indexOf(currentNodeId);
-
-  if (currentIndex === -1) {
-    return starterPath.nodeIds.filter((nodeId) => !excludeIds.has(nodeId));
-  }
-
-  return starterPath.nodeIds
-    .map((nodeId, index) => ({
-      nodeId,
-      index,
-      distance: Math.abs(index - currentIndex),
-    }))
-    .filter((item) => item.nodeId !== currentNodeId && !excludeIds.has(item.nodeId))
-    .sort((left, right) => {
-      if (left.distance !== right.distance) {
-        return left.distance - right.distance;
-      }
-
-      return left.index - right.index;
-    })
-    .map((item) => item.nodeId);
-}
-
-function getSameModuleSupplementalIds(
-  graph: KnowledgeGraph,
-  currentNodeId: string,
-  excludeIds: Set<string>,
-) {
-  const currentNode = getNode(graph, currentNodeId);
-
-  return graph.nodes
-    .filter(
-      (node) =>
-        node.module === currentNode.module &&
-        node.id !== currentNodeId &&
-        !excludeIds.has(node.id),
-    )
-    .sort((left, right) => left.title.localeCompare(right.title))
-    .map((node) => node.id);
-}
-
-function buildVisibleNodeIds(
-  graph: KnowledgeGraph,
-  currentNodeId: string,
-  starterPath: StarterPath,
-) {
-  const prerequisiteIds = getDirectPrerequisiteIds(graph, currentNodeId);
-  const dependentIds = getDirectDependentIds(graph, currentNodeId);
-  const relatedIds = getDirectRelatedIds(graph, currentNodeId).filter(
-    (nodeId) =>
-      nodeId !== currentNodeId &&
-      !prerequisiteIds.includes(nodeId) &&
-      !dependentIds.includes(nodeId),
-  );
-
-  const visibleNodeIds = [
-    currentNodeId,
-    ...prerequisiteIds,
-    ...dependentIds,
-  ];
-  const includedIds = new Set(visibleNodeIds);
-
-  for (const nodeId of relatedIds) {
-    if (visibleNodeIds.length >= MAX_VISIBLE_NODES) {
-      break;
-    }
-
-    if (!includedIds.has(nodeId)) {
-      visibleNodeIds.push(nodeId);
-      includedIds.add(nodeId);
-    }
-  }
-
-  if (visibleNodeIds.length < MIN_VISIBLE_NODES) {
-    const supplementalIds = [
-      ...getStarterPathSupplementalIds(
-        graph,
-        currentNodeId,
-        starterPath,
-        includedIds,
-      ),
-      ...getSameModuleSupplementalIds(graph, currentNodeId, includedIds),
-    ];
-
-    for (const nodeId of supplementalIds) {
-      if (visibleNodeIds.length >= MIN_VISIBLE_NODES) {
-        break;
-      }
-
-      if (!includedIds.has(nodeId)) {
-        visibleNodeIds.push(nodeId);
-        includedIds.add(nodeId);
-      }
-    }
-  }
-
-  return {
-    visibleNodeIds,
-    prerequisiteIds,
-    dependentIds,
-    relatedIds: relatedIds.filter((nodeId) => includedIds.has(nodeId)),
-  };
-}
-
-function getVerticalPositions(count: number, centerY = 210, step = 92) {
+function getLaneYPositions(count: number, centerY: number, gap: number) {
   if (count <= 0) {
     return [];
   }
 
-  const startY = centerY - ((count - 1) * step) / 2;
+  const startY = centerY - ((count - 1) * gap) / 2;
 
-  return Array.from({ length: count }, (_, index) => startY + index * step);
+  return Array.from({ length: count }, (_, index) => startY + index * gap);
 }
 
-function getHorizontalPositions(count: number, startX: number, endX: number) {
+function getBottomStripXPositions(count: number) {
   if (count <= 0) {
     return [];
   }
 
   if (count === 1) {
-    return [(startX + endX) / 2];
+    return [LEARN_WORLD.width / 2];
   }
 
-  const step = (endX - startX) / (count - 1);
+  return [395, 585];
+}
 
-  return Array.from({ length: count }, (_, index) => startX + index * step);
+function getLaneOverflowPosition(lane: LearnOverflowLane) {
+  switch (lane) {
+    case "prerequisite":
+      return { x: 180, y: 430 };
+    case "dependent":
+      return { x: 800, y: 430 };
+    case "related":
+      return { x: LEARN_WORLD.width / 2, y: 515 };
+    default:
+      return { x: LEARN_WORLD.width / 2, y: LEARN_WORLD.height / 2 };
+  }
 }
 
 function buildNodePositions(
@@ -294,50 +262,79 @@ function buildNodePositions(
   prerequisiteIds: string[],
   dependentIds: string[],
   relatedIds: string[],
-  supplementalIds: string[],
 ) {
   const positions = new Map<string, { x: number; y: number }>();
 
-  positions.set(currentNodeId, { x: 320, y: 210 });
+  positions.set(currentNodeId, { x: LEARN_WORLD.width / 2, y: 225 });
 
-  getVerticalPositions(prerequisiteIds.length).forEach((y, index) => {
-    positions.set(prerequisiteIds[index], { x: 72, y });
+  getLaneYPositions(prerequisiteIds.length, 225, 112).forEach((y, index) => {
+    positions.set(prerequisiteIds[index], { x: 180, y });
   });
 
-  getVerticalPositions(dependentIds.length).forEach((y, index) => {
-    positions.set(dependentIds[index], { x: 568, y });
+  getLaneYPositions(dependentIds.length, 225, 112).forEach((y, index) => {
+    positions.set(dependentIds[index], { x: 800, y });
   });
 
-  const topRowCount = Math.ceil((relatedIds.length + supplementalIds.length) / 2);
-  const topRowIds = [...relatedIds, ...supplementalIds].slice(0, topRowCount);
-  const bottomRowIds = [...relatedIds, ...supplementalIds].slice(topRowCount);
-
-  getHorizontalPositions(topRowIds.length, 152, 488).forEach((x, index) => {
-    positions.set(topRowIds[index], { x, y: 54 });
-  });
-
-  getHorizontalPositions(bottomRowIds.length, 152, 488).forEach((x, index) => {
-    positions.set(bottomRowIds[index], { x, y: 348 });
+  getBottomStripXPositions(relatedIds.length).forEach((x, index) => {
+    positions.set(relatedIds[index], { x, y: 455 });
   });
 
   return positions;
 }
 
-function getVisibleEdges(graph: KnowledgeGraph, visibleNodeIds: Set<string>, currentNodeId: string) {
+function getVisibleEdges(
+  graph: KnowledgeGraph,
+  currentNodeId: string,
+  visibleNodeIds: Set<string>,
+  recommendedNodeIds: Set<string>,
+) {
   return graph.edges
     .filter(
       (edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target),
     )
     .map((edge) => ({
-      id: edge.id,
       edge,
-      isDirectToCurrent:
+      id: edge.id,
+      isIncidentToCurrent:
         edge.source === currentNodeId || edge.target === currentNodeId,
-      isDimmed:
-        edge.source !== currentNodeId &&
-        edge.target !== currentNodeId &&
-        edge.relationType !== "prerequisite_of",
+      isRecommended:
+        edge.relationType === "prerequisite_of" &&
+        edge.source === currentNodeId &&
+        recommendedNodeIds.has(edge.target),
+      visualGroup: getLearnEdgeVisualStyle(edge).group,
     }));
+}
+
+export function getLearnEdgeVisualStyle(
+  edge: Pick<GraphEdge, "relationType">,
+  state: {
+    isHighlighted?: boolean;
+    isRecommended?: boolean;
+    isSelected?: boolean;
+  } = {},
+): LearnEdgeVisualStyle {
+  const isPrimary = edge.relationType === "prerequisite_of";
+
+  if (isPrimary) {
+    return {
+      group: "primary",
+      hasArrow: true,
+      opacity: state.isSelected
+        ? 0.96
+        : state.isHighlighted || state.isRecommended
+          ? 0.82
+          : 0.54,
+      strokeWidth: state.isSelected || state.isRecommended ? 2.6 : 2.1,
+    };
+  }
+
+  return {
+    dashArray: "8 10",
+    group: "secondary",
+    hasArrow: false,
+    opacity: state.isSelected ? 0.74 : state.isHighlighted ? 0.42 : 0.2,
+    strokeWidth: state.isSelected ? 1.8 : 1.3,
+  };
 }
 
 export function getNextRecommendedNodes(
@@ -411,8 +408,7 @@ export function getNextRecommendedNodes(
         return priorityGap;
       }
 
-      const leftNodeId =
-        left.source === currentNodeId ? left.target : left.source;
+      const leftNodeId = left.source === currentNodeId ? left.target : left.source;
       const rightNodeId =
         right.source === currentNodeId ? right.target : right.source;
 
@@ -456,23 +452,42 @@ export function getLearnNeighborhood(
     graph.starterPaths.find((path) => path.id === starterPathId) ??
     graph.starterPaths[0];
 
-  const { visibleNodeIds, prerequisiteIds, dependentIds, relatedIds } =
-    buildVisibleNodeIds(graph, currentNodeId, starterPath);
-  const visibleNodeIdSet = new Set(visibleNodeIds);
-  const supplementalIds = visibleNodeIds.filter(
+  const directPrerequisiteIds = sortNodeIdsByLearningPriority(
+    graph,
+    getDirectPrerequisiteIds(graph, currentNodeId),
+    starterPath,
+  );
+  const directDependentIds = sortNodeIdsByLearningPriority(
+    graph,
+    getDirectDependentIds(graph, currentNodeId),
+    starterPath,
+  );
+  const directRelatedIds = getDirectRelatedIds(graph, currentNodeId, starterPath).filter(
     (nodeId) =>
       nodeId !== currentNodeId &&
-      !prerequisiteIds.includes(nodeId) &&
-      !dependentIds.includes(nodeId) &&
-      !relatedIds.includes(nodeId),
+      !directPrerequisiteIds.includes(nodeId) &&
+      !directDependentIds.includes(nodeId),
   );
+
+  const prerequisiteIds = directPrerequisiteIds.slice(0, MAX_PREREQUISITES);
+  const dependentIds = directDependentIds.slice(0, MAX_DEPENDENTS);
+  const relatedIds = directRelatedIds.slice(0, MAX_RELATED);
+
   const positions = buildNodePositions(
     currentNodeId,
     prerequisiteIds,
     dependentIds,
     relatedIds,
-    supplementalIds,
   );
+  const visibleNodeIds = [
+    currentNodeId,
+    ...prerequisiteIds,
+    ...dependentIds,
+    ...relatedIds,
+  ];
+  const visibleNodeIdSet = new Set(visibleNodeIds);
+  const recommendations = getNextRecommendedNodes(graph, currentNodeId, starterPath);
+  const recommendedNodeIds = new Set(recommendations.map((recommendation) => recommendation.node.id));
 
   const visibleNodes = visibleNodeIds.map((nodeId) => {
     const role: LearnVisibleNodeRole =
@@ -482,33 +497,69 @@ export function getLearnNeighborhood(
           ? "prerequisite"
           : dependentIds.includes(nodeId)
             ? "dependent"
-            : relatedIds.includes(nodeId)
-              ? "related"
-              : "supplemental";
+            : "related";
 
     return {
       id: nodeId,
       node: getNode(graph, nodeId),
+      position: positions.get(nodeId) ?? {
+        x: LEARN_WORLD.width / 2,
+        y: LEARN_WORLD.height / 2,
+      },
       role,
-      position: positions.get(nodeId) ?? { x: 320, y: 210 },
-      isDimmed: role === "supplemental",
     };
   });
 
+  const overflowIndicators = [
+    {
+      count: Math.max(0, directPrerequisiteIds.length - prerequisiteIds.length),
+      hiddenNodeIds: directPrerequisiteIds.slice(prerequisiteIds.length),
+      id: "overflow-prerequisite",
+      label: "More before",
+      lane: "prerequisite" as const,
+      position: getLaneOverflowPosition("prerequisite"),
+    },
+    {
+      count: Math.max(0, directDependentIds.length - dependentIds.length),
+      hiddenNodeIds: directDependentIds.slice(dependentIds.length),
+      id: "overflow-dependent",
+      label: "More next",
+      lane: "dependent" as const,
+      position: getLaneOverflowPosition("dependent"),
+    },
+    {
+      count: Math.max(0, directRelatedIds.length - relatedIds.length),
+      hiddenNodeIds: directRelatedIds.slice(relatedIds.length),
+      id: "overflow-related",
+      label: "More context",
+      lane: "related" as const,
+      position: getLaneOverflowPosition("related"),
+    },
+  ].filter((indicator) => indicator.count > 0) satisfies LearnOverflowIndicator[];
+
+  const visibleEdges = getVisibleEdges(
+    graph,
+    currentNodeId,
+    visibleNodeIdSet,
+    recommendedNodeIds,
+  );
+
   return {
     currentNode,
-    starterPath,
-    visibleNodeIds,
-    visibleNodes,
-    visibleEdges: getVisibleEdges(graph, visibleNodeIdSet, currentNodeId),
     nodeOrder: [
-      currentNodeId,
       ...prerequisiteIds,
+      currentNodeId,
       ...dependentIds,
       ...relatedIds,
-      ...supplementalIds,
     ],
-    recommendations: getNextRecommendedNodes(graph, currentNodeId, starterPath),
+    overflowIndicators,
+    recommendations,
+    starterPath,
+    visibleEdgeIds: visibleEdges.map((edge) => edge.id),
+    visibleEdges,
+    visibleNodeIds,
+    visibleNodes,
+    worldSize: LEARN_WORLD,
   };
 }
 
@@ -523,39 +574,105 @@ export function getDirectionalNeighborId(
     return null;
   }
 
-  const candidates = visibleNodes
+  const directionalCandidates = visibleNodes
     .filter((node) => node.id !== currentNodeId)
     .map((node) => {
       const deltaX = node.position.x - currentNode.position.x;
       const deltaY = node.position.y - currentNode.position.y;
 
       return {
-        axisDistance:
-          direction === "left"
-            ? -deltaX
-            : direction === "right"
-              ? deltaX
-              : direction === "up"
-                ? -deltaY
-                : deltaY,
-        crossDistance:
-          direction === "left" || direction === "right"
-            ? Math.abs(deltaY)
-            : Math.abs(deltaX),
+        deltaX,
+        deltaY,
         node,
       };
     })
-    .filter((candidate) => candidate.axisDistance > 0)
+    .filter(({ deltaX, deltaY }) => {
+      switch (direction) {
+        case "left":
+          return deltaX < 0;
+        case "right":
+          return deltaX > 0;
+        case "up":
+          return deltaY < 0;
+        case "down":
+          return deltaY > 0;
+        default:
+          return false;
+      }
+    })
     .sort((left, right) => {
-      const leftScore = left.axisDistance + left.crossDistance * 3;
-      const rightScore = right.axisDistance + right.crossDistance * 3;
+      const leftRolePriority =
+        direction === "left"
+          ? left.node.role === "prerequisite"
+            ? 0
+            : left.node.role === "related"
+              ? 1
+              : 2
+          : direction === "right"
+            ? left.node.role === "dependent"
+              ? 0
+              : left.node.role === "related"
+                ? 1
+                : 2
+            : direction === "down"
+              ? left.node.role === "related"
+                ? 0
+                : 1
+              : 0;
+      const rightRolePriority =
+        direction === "left"
+          ? right.node.role === "prerequisite"
+            ? 0
+            : right.node.role === "related"
+              ? 1
+              : 2
+          : direction === "right"
+            ? right.node.role === "dependent"
+              ? 0
+              : right.node.role === "related"
+                ? 1
+                : 2
+            : direction === "down"
+              ? right.node.role === "related"
+                ? 0
+                : 1
+              : 0;
+
+      if (leftRolePriority !== rightRolePriority) {
+        return leftRolePriority - rightRolePriority;
+      }
+
+      const leftPrimaryDistance =
+        direction === "left" || direction === "right"
+          ? Math.abs(left.deltaX)
+          : Math.abs(left.deltaY);
+      const rightPrimaryDistance =
+        direction === "left" || direction === "right"
+          ? Math.abs(right.deltaX)
+          : Math.abs(right.deltaY);
+
+      if (leftPrimaryDistance !== rightPrimaryDistance) {
+        return leftPrimaryDistance - rightPrimaryDistance;
+      }
+
+      const leftSecondaryDistance =
+        direction === "left" || direction === "right"
+          ? Math.abs(left.deltaY)
+          : Math.abs(left.deltaX);
+      const rightSecondaryDistance =
+        direction === "left" || direction === "right"
+          ? Math.abs(right.deltaY)
+          : Math.abs(right.deltaX);
+
+      const leftScore = leftPrimaryDistance + leftSecondaryDistance * 2;
+      const rightScore = rightPrimaryDistance + rightSecondaryDistance * 2;
 
       if (leftScore !== rightScore) {
         return leftScore - rightScore;
       }
 
-      return left.node.node.title.localeCompare(right.node.node.title);
+      return leftSecondaryDistance - rightSecondaryDistance;
     });
 
-  return candidates[0]?.node.id ?? null;
+  return directionalCandidates[0]?.node.id ?? null;
 }
