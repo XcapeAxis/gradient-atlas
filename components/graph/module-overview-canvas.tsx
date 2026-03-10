@@ -123,6 +123,10 @@ export function ModuleOverviewCanvas({
       return;
     }
 
+    if (typeof nodeElement.scrollIntoView !== "function") {
+      return;
+    }
+
     nodeElement.scrollIntoView({
       behavior: motionMode === "reduced" ? "auto" : "smooth",
       block: "center",
