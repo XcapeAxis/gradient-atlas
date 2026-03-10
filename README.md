@@ -66,6 +66,7 @@ corepack pnpm exec playwright install
 - `data/`: bundled curriculum packs and published-graph manifest
 - `lib/schema.ts`: shared Zod content model for runtime and studio validation
 - `lib/motion.ts`: reusable motion tokens and preference logic
+- `lib/learn-viewport.ts`: safe-zone viewport rules for conditional recentering
 - `lib/curriculum-navigation.ts`: search, prerequisite warnings, and explainable recommendations
 - `lib/module-overview-layout.ts`: deterministic module-lane layout
 - `lib/progress.ts`: progress state helpers and summaries
@@ -87,6 +88,8 @@ corepack pnpm exec playwright install
 
 - Lower-density information architecture over dashboard-style density
 - Learn is the flagship route and keeps the graph as the visual focus
+- Learn uses a lane-based local graph: hover peeks, click commits, and viewport recentering is conditional
+- Studio keeps JSON tools and destructive actions behind secondary disclosures
 - Home stays concise: one primary CTA, one starter-path chooser, and one continue-learning surface
 - Motion is limited to high-value focus, selection, and handoff states
 - English-first UI with only a small amount of supporting Chinese on the landing page
@@ -117,6 +120,7 @@ corepack pnpm exec playwright install
 - [docs/product-spec.md](/D:/MYFILES/MindMap/docs/product-spec.md)
 - [docs/content-model.md](/D:/MYFILES/MindMap/docs/content-model.md)
 - [docs/ui-redesign-spec.md](/D:/MYFILES/MindMap/docs/ui-redesign-spec.md)
+- [docs/learn-studio-refactor-spec.md](/D:/MYFILES/MindMap/docs/learn-studio-refactor-spec.md)
 
 ## Future backend plan
 
